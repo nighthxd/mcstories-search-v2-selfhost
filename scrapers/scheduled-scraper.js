@@ -14,6 +14,7 @@ async function getDB() {
 }
 
 async function scrapeUrlWithCloudflare(urlToScrape, elementSelectors) {
+    // ... (This function remains unchanged)
     const { CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN } = process.env;
     if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN) {
         throw new Error("Cloudflare credentials are not set in the .env file.");
@@ -41,16 +42,19 @@ async function scrapeUrlWithCloudflare(urlToScrape, elementSelectors) {
 
 async function runScraper() {
     const db = await getDB();
-    console.log("[DEBUG] Database connection opened.");
     try {
         await db.exec('PRAGMA journal_mode = WAL;');
-        const testValue = Math.floor(Date.now() / 1000);
-        await db.run('UPDATE scrape_state SET last_scraped_category_index = ? WHERE id = 1', testValue);
+
+        // --- MODIFIED: Fetch stories that already have a synopsis ---
+        console.log("[Scraper] Fetching list of stories that already have a synopsis...");
+        const existingStories = await db.all("SELECT url FROM stories WHERE synopsis IS NOT NULL AND synopsis != ''");
+        const urlsToSkip = new Set(existingStories.map(s => s.url));
+        console.log(`[Scraper] Found ${urlsToSkip.size} stories with existing synopses. They will be skipped.`);
+        // --- END MODIFICATION ---
 
         const categoryKeys = Object.keys(tags);
         const state = await db.get('SELECT last_scraped_category_index FROM scrape_state WHERE id = 1');
-        const realLastIndex = state.last_scraped_category_index < 1000 ? state.last_scraped_category_index : -1;
-        const nextIndex = (realLastIndex + 1) % categoryKeys.length;
+        const nextIndex = (state.last_scraped_category_index + 1) % categoryKeys.length;
         
         const categoryToScrape = categoryKeys[nextIndex];
         const urlToScrape = tags[categoryToScrape];
@@ -76,18 +80,23 @@ async function runScraper() {
             } catch (e) { console.warn(`[Scraper] Skipping invalid snippet: ${e.message}`); }
         });
 
-        if (storiesOnPage.length === 0) {
-            console.log("[Scraper] No stories found on this page.");
+        // --- MODIFIED: Filter out the stories we already have ---
+        const storiesToScrape = storiesOnPage.filter(story => !urlsToSkip.has(story.url));
+        console.log(`[Scraper] Index page has ${storiesOnPage.length} stories. After filtering, ${storiesToScrape.length} new synopses will be scraped.`);
+        // --- END MODIFICATION ---
+
+        if (storiesToScrape.length === 0) {
+            console.log("[Scraper] No new stories to scrape on this page. Moving to next category on next run.");
             await db.run('UPDATE scrape_state SET last_scraped_category_index = ? WHERE id = 1', nextIndex);
             await db.close();
             return;
         }
 
-        console.log(`[Scraper] Found ${storiesOnPage.length} stories. Saving in batches of 10...`);
+        console.log(`[Scraper] Fetching synopses and saving in batches of 10...`);
         let storiesBatch = [];
         const batchSize = 10;
-        for (let i = 0; i < storiesOnPage.length; i++) {
-            const story = storiesOnPage[i];
+        for (let i = 0; i < storiesToScrape.length; i++) {
+            const story = storiesToScrape[i];
             try {
                 console.log(`[DEBUG] Waiting 15s before scrape #${i + 1}...`);
                 await delay(15000); 
@@ -101,7 +110,7 @@ async function runScraper() {
                 console.error(`[Scraper] Failed to scrape synopsis for ${story.title}:`, error);
                 storiesBatch.push({ ...story, synopsis: '' });
             }
-            if (storiesBatch.length >= batchSize || i === storiesOnPage.length - 1) {
+            if (storiesBatch.length >= batchSize || i === storiesToScrape.length - 1) {
                 console.log(`[Scraper] Saving batch of ${storiesBatch.length} stories...`);
                 await saveStoriesToDB(storiesBatch, db);
                 storiesBatch = [];
@@ -118,6 +127,7 @@ async function runScraper() {
 }
 
 async function saveStoriesToDB(stories, db) {
+    // ... (This function remains unchanged)
     try {
         await db.exec('BEGIN TRANSACTION;');
         const stmt = await db.prepare(`
@@ -129,24 +139,15 @@ async function saveStoriesToDB(stories, db) {
                 categories = excluded.categories,
                 last_scraped_at = datetime('now');
         `);
-        
-        // --- NEW DETAILED DEBUG LOGS ---
         for (const story of stories) {
             const categoriesString = story.categories.join(',');
-            console.log(`[SAVE-DEBUG] Attempting to run statement for: "${story.title.substring(0, 30)}..."`);
             await stmt.run(story.url, story.title, story.synopsis, categoriesString);
-            console.log(`[SAVE-DEBUG] -> Statement executed successfully.`);
         }
-        
-        console.log(`[SAVE-DEBUG] All statements in batch executed. Finalizing...`);
         await stmt.finalize();
-        console.log(`[SAVE-DEBUG] Statement finalized. Committing transaction...`);
         await db.exec('COMMIT;');
-        console.log("[SAVE-DEBUG] Transaction committed successfully. Batch save complete.");
-        // --- END NEW LOGS ---
-
+        console.log("[DEBUG] Batch save complete.");
     } catch (error) {
-        console.error("[SAVE-DEBUG] CRITICAL ERROR during DB transaction, rolling back.", error);
+        console.error("[DEBUG] Error during DB transaction, rolling back.", error);
         await db.exec('ROLLBACK;');
         throw error; 
     }
