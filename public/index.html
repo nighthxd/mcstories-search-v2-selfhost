@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCStories Search</title>
+    <link rel="stylesheet" type="text/css" href="style-sheet.css">
+</head>
+<body>
+    <article id="mcstories">
+        <h3 class="title">MCStories Search</h3>
+        <h3 class="byline">By -=pizzaman=-</h3>
+        <br></br>
+        <button id="theme-toggle" aria-label="Toggle Dark Mode"></button>
+
+        <section>
+            <h3>Disclaimer #1 Grown-Ups Only!</h3>
+            <p>This site may contain or link to <strong>explicit content</strong>. It is not intended for</p>
+            <p>children.</p>
+        </section>
+
+        <section>
+            <h3>Disclaimer #2</h3>
+            <p>This site is not in any way affiliated to the original site from which it</p>
+            <p>searches.</p>
+        </section>
+    </article>
+	
+	<div class="body-container">
+										   
+
+		<div class="search-container">
+			<input type="text" id="search-input" placeholder="Search...">
+			<button onclick="handleSearchClick()" id="search-button">Search</button>
+		</div>
+
+		<h3>Filter Categories:</h3>
+		<div class="category-columns">
+            <div class="category-column">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>In</th>
+                            <th>Ex</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><label for="bd-in">bd: bondage and/or discipline</label></td>
+                            <td><input type="checkbox" id="bd-in" name="include_tag" value="bd"></td>
+                            <td><input type="checkbox" id="bd-ex" name="exclude_tag" value="bd"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="be-in">be: bestiality</label></td>
+                            <td><input type="checkbox" id="be-in" name="include_tag" value="be"></td>
+                            <td><input type="checkbox" id="be-ex" name="exclude_tag" value="be"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="ca-in">ca: cannibalism</label></td>
+                            <td><input type="checkbox" id="ca-in" name="include_tag" value="ca"></td>
+                            <td><input type="checkbox" id="ca-ex" name="exclude_tag" value="ca"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="cb-in">cb: comic book: super-hero/heroine</label></td>
+                            <td><input type="checkbox" id="cb-in" name="include_tag" value="cb"></td>
+                            <td><input type="checkbox" id="cb-ex" name="exclude_tag" value="cb"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="ds-in">ds: dominance and/or submission</label></td>
+                            <td><input type="checkbox" id="ds-in" name="include_tag" value="ds"></td>
+                            <td><input type="checkbox" id="ds-ex" name="exclude_tag" value="ds"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="ex-in">ex: exhibitionism</label></td>
+                            <td><input type="checkbox" id="ex-in" name="include_tag" value="ex"></td>
+                            <td><input type="checkbox" id="ex-ex" name="exclude_tag" value="ex"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="fd-in">fd: female dominant</label></td>
+                            <td><input type="checkbox" id="fd-in" name="include_tag" value="fd"></td>
+                            <td><input type="checkbox" id="fd-ex" name="exclude_tag" value="fd"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="ff-in">ff: female/female sex</label></td>
+                            <td><input type="checkbox" id="ff-in" name="include_tag" value="ff"></td>
+                            <td><input type="checkbox" id="ff-ex" name="exclude_tag" value="ff"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="ft-in">ft: fetish</label></td>
+                            <td><input type="checkbox" id="ft-in" name="include_tag" value="ft"></td>
+                            <td><input type="checkbox" id="ft-ex" name="exclude_tag" value="ft"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="fu-in">fu: furry</label></td>
+                            <td><input type="checkbox" id="fu-in" name="include_tag" value="fu"></td>
+                            <td><input type="checkbox" id="fu-ex" name="exclude_tag" value="fu"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="gr-in">gr: growth/enlargement</label></td>
+                            <td><input type="checkbox" id="gr-in" name="include_tag" value="gr"></td>
+                            <td><input type="checkbox" id="gr-ex" name="exclude_tag" value="gr"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="hm-in">hm: humiliation</label></td>
+                            <td><input type="checkbox" id="hm-in" name="include_tag" value="hm"></td>
+                            <td><input type="checkbox" id="hm-ex" name="exclude_tag" value="hm"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="hu-in">hu: humor</label></td>
+                            <td><input type="checkbox" id="hu-in" name="include_tag" value="hu"></td>
+                            <td><input type="checkbox" id="hu-ex" name="exclude_tag" value="hu"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="category-column">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>In</th>
+                            <th>Ex</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><label for="in-in">in: incest</label></td>
+                            <td><input type="checkbox" id="in-in" name="include_tag" value="in"></td>
+                            <td><input type="checkbox" id="in-ex" name="exclude_tag" value="in"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="la-in">la: lactation</label></td>
+                            <td><input type="checkbox" id="la-in" name="include_tag" value="la"></td>
+                            <td><input type="checkbox" id="la-ex" name="exclude_tag" value="la"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="ma-in">ma: masturbation</label></td>
+                            <td><input type="checkbox" id="ma-in" name="include_tag" value="ma"></td>
+                            <td><input type="checkbox" id="ma-ex" name="exclude_tag" value="ma"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="mc-in">mc: mind control</label></td>
+                            <td><input type="checkbox" id="mc-in" name="include_tag" value="mc"></td>
+                            <td><input type="checkbox" id="mc-ex" name="exclude_tag" value="mc"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="md-in">md: male dominant</label></td>
+                            <td><input type="checkbox" id="md-in" name="include_tag" value="md"></td>
+                            <td><input type="checkbox" id="md-ex" name="exclude_tag" value="md"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="mf-in">mf: male/female sex</label></td>
+                            <td><input type="checkbox" id="mf-in" name="include_tag" value="mf"></td>
+                            <td><input type="checkbox" id="mf-ex" name="exclude_tag" value="mf"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="mm-in">mm: male/male sex</label></td>
+                            <td><input type="checkbox" id="mm-in" name="include_tag" value="mm"></td>
+                            <td><input type="checkbox" id="mm-ex" name="exclude_tag" value="mm"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="nc-in">nc: non-consensual</label></td>
+                            <td><input type="checkbox" id="nc-in" name="include_tag" value="nc"></td>
+                            <td><input type="checkbox" id="nc-ex" name="exclude_tag" value="nc"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="rb-in">rb: robots</label></td>
+                            <td><input type="checkbox" id="rb-in" name="include_tag" value="rb"></td>
+                            <td><input type="checkbox" id="rb-ex" name="exclude_tag" value="rb"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="sc-in">sc: scatology</label></td>
+                            <td><input type="checkbox" id="sc-in" name="include_tag" value="sc"></td>
+                            <td><input type="checkbox" id="sc-ex" name="exclude_tag" value="sc"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="sf-in">sf: science fiction</label></td>
+                            <td><input type="checkbox" id="sf-in" name="include_tag" value="sf"></td>
+                            <td><input type="checkbox" id="sf-ex" name="exclude_tag" value="sf"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="ts-in">ts: time stop</label></td>
+                            <td><input type="checkbox" id="ts-in" name="include_tag" value="ts"></td>
+                            <td><input type="checkbox" id="ts-ex" name="exclude_tag" value="ts"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="ws-in">ws: watersports</label></td>
+                            <td><input type="checkbox" id="ws-in" name="include_tag" value="ws"></td>
+                            <td><input type="checkbox" id="ws-ex" name="exclude_tag" value="ws"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+		<div id="results-container">
+			</div>
+	</div>
+
+    <script src="search.js"></script>
+</body>
+</html>
