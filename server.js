@@ -41,7 +41,7 @@ app.post('/git-webhook', bodyParser.raw({ type: 'application/json' }), (req, res
 
     // 3. Run the deployment script
     console.log("Signature verified. Running deployment script...");
-    execFile('../deploy.sh', (error, stdout, stderr) => {
+    execFile('./deploy.sh', (error, stdout, stderr) => {
         if (error) {
             console.error(`execFile error: ${error}`);
             return;
