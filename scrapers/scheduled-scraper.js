@@ -86,7 +86,7 @@ async function runScraper() {
         }
 
         // --- MODIFIED: Batch saving logic ---
-        console.log(`[Scraper] Found ${storiesOnPage.length} stories. Fetching synopses and saving in batches of 10...`);
+        console.log(`[Scraper] Found ${storiesOnPage.length} stories. Fetching synopses and saving in batches of 10..`);
         let storiesBatch = [];
         const batchSize = 10;
 
