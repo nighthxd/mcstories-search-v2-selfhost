@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # Ignore the entire database directory
 /database/
+
+# Ignore scripts
+*.sh
