@@ -78,60 +78,62 @@ async function runScraper() {
         });
 
         if (storiesOnPage.length === 0) {
-            console.log("[Scraper] No stories found on index page. Exiting.");
-            await db.close(); // --- Ensure DB is closed here too ---
+            console.log("[Scraper] No stories found on this page. Moving to next category on next run.");
+            // We still update the state to avoid getting stuck on an empty category
+            await db.run('UPDATE scrape_state SET last_scraped_category_index = ? WHERE id = 1', nextIndex);
+            await db.close();
             return;
         }
 
-        console.log(`[Scraper] Found ${storiesOnPage.length} stories. Fetching synopses...`);
-        const storiesWithData = [];
-        for (const story of storiesOnPage) {
+        // --- MODIFIED: Batch saving logic ---
+        console.log(`[Scraper] Found ${storiesOnPage.length} stories. Fetching synopses and saving in batches of 10...`);
+        let storiesBatch = [];
+        const batchSize = 10;
+
+        for (let i = 0; i < storiesOnPage.length; i++) {
+            const story = storiesOnPage[i];
             try {
-                await delay(10000);
+                console.log(`[DEBUG] Waiting 15 seconds before scrape #${i + 1}...`);
+                await delay(15000); 
+
                 console.log(`[Scraper] Scraping synopsis for: ${story.title}`);
                 const synopsisSelector = [{ selector: "section.synopsis" }];
                 const storyPageResults = await scrapeUrlWithCloudflare(story.url, synopsisSelector);
 
                 let synopsis = storyPageResults.length > 0 && storyPageResults[0].text ? storyPageResults[0].text.trim() : '';
-                storiesWithData.push({ ...story, synopsis });
-
-                // --- NEW DEBUG LOG ---
-                console.log(`[DEBUG] Scraped: "${story.title}". Synopsis length: ${synopsis.length}`);
+                
+                // Add the completed story to the current batch
+                storiesBatch.push({ ...story, synopsis });
+                console.log(`[DEBUG] Scraped: "${story.title}". Batch size is now ${storiesBatch.length}.`);
 
             } catch (error) {
                 console.error(`[Scraper] Failed to scrape synopsis for ${story.title}:`, error);
-                storiesWithData.push({ ...story, synopsis: '' });
+                // Still add the story but with an empty synopsis so we don't lose it
+                storiesBatch.push({ ...story, synopsis: '' });
             }
-            await delay(5000);
+
+            // Save the batch if it's full OR if we're at the very last story
+            if (storiesBatch.length >= batchSize || i === storiesOnPage.length - 1) {
+                console.log(`[Scraper] Saving a batch of ${storiesBatch.length} stories to the database...`);
+                await saveStoriesToDB(storiesBatch, db);
+                console.log(`[DEBUG] Batch save complete.`);
+                storiesBatch = []; // Clear the batch for the next set
+            }
         }
-
-        // --- NEW DEBUG LOGS ---
-        console.log(`[DEBUG] Finished scraping all synopses. Total stories with data: ${storiesWithData.length}`);
-        if (storiesWithData.length > 0) {
-            console.log(`[DEBUG] First story object being sent to save:`, JSON.stringify(storiesWithData[0], null, 2));
-        }
-
-        console.log(`[Scraper] Saving ${storiesWithData.length} stories to the database...`);
-        await saveStoriesToDB(storiesWithData, db);
-
-        // --- NEW DEBUG LOG ---
-        console.log(`[DEBUG] saveStoriesToDB function has completed.`);
-
+        
         await db.run('UPDATE scrape_state SET last_scraped_category_index = ? WHERE id = 1', nextIndex);
-        console.log('[Scraper] Scrape and save successful.');
+        console.log('[Scraper] Scrape and save successful for the entire category.');
 
     } catch (error) {
         console.error("[Scraper] Error in scheduled scrape handler:", error);
     } finally {
-        // --- NEW DEBUG LOG ---
         console.log("[DEBUG] Reached 'finally' block, closing DB connection.");
         await db.close();
     }
 }
 
 async function saveStoriesToDB(stories, db) {
-    // --- NEW DEBUG LOG ---
-    console.log(`[DEBUG] Inside saveStoriesToDB function.`);
+    console.log(`[DEBUG] Inside saveStoriesToDB function with ${stories.length} stories.`);
     const stmt = await db.prepare(`
         INSERT INTO stories (url, title, synopsis, categories, last_scraped_at) 
         VALUES (?, ?, ?, ?, datetime('now'))
