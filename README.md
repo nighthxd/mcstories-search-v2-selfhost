@@ -57,7 +57,8 @@ Before you begin, ensure you have the following installed on your Linux server (
 
 Clone your project repository onto the server and navigate into the directory.
 
-`git clone   cd` 
+`   git clone  <your-repository-url>   ` 
+`   cd <your-repository-url>   ` 
 
 ### 3\. Install Dependencies
 
