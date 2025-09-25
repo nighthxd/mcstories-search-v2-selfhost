@@ -1,6 +1,9 @@
 // server.js
 require('dotenv').config();
 const express = require('express');
+const crypto = require('crypto');
+const { execFile } = require('child_process');
+const bodyParser = require('body-parser'); // <-- Add this line
 const path = require('path');
 const cron = require('node-cron');
 const { open } = require('sqlite');
@@ -10,6 +13,48 @@ const { runScraper } = require('./scrapers/scheduled-scraper');
 const app = express();
 const PORT = process.env.PORT || 3000;
 let db;
+
+// --- MIDDLEWARE ---
+// Place this before your other app.use and app.get calls
+
+// ⚠️ IMPORTANT: Use body-parser but only for the webhook route
+// We need the raw body to verify the signature
+app.post('/git-webhook', bodyParser.raw({ type: 'application/json' }), (req, res) => {
+    console.log("Webhook received...");
+
+    // 1. Verify the signature
+    const secret = process.env.WEBHOOK_SECRET;
+    const signature = req.headers['x-hub-signature-256'];
+    const hash = `sha256=${crypto.createHmac('sha256', secret).update(req.body).digest('hex')}`;
+
+    if (signature !== hash) {
+        console.error("Webhook signature verification failed!");
+        return res.status(401).send('Signature mismatch');
+    }
+
+    // 2. Check if it's a push to the main branch
+    const data = JSON.parse(req.body);
+    if (data.ref !== 'refs/heads/main') {
+        console.log("Push was not to main branch, ignoring.");
+        return res.status(200).send('Push was not to main, ignored.');
+    }
+
+    // 3. Run the deployment script
+    console.log("Signature verified. Running deployment script...");
+    execFile('../deploy.sh', (error, stdout, stderr) => {
+        if (error) {
+            console.error(`execFile error: ${error}`);
+            return;
+        }
+        if (stderr) {
+            console.error(`stderr: ${stderr}`);
+            return;
+        }
+        console.log(`stdout: ${stdout}`);
+    });
+
+    res.status(200).send('Deployment started.');
+});
 
 (async () => {
     db = await open({
