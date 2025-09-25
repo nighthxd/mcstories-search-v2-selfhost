@@ -123,7 +123,7 @@ async function saveStoriesToDB(stories, db) {
         VALUES (?, ?, ?, ?, datetime('now'))
         ON CONFLICT(url) DO UPDATE SET
             title = excluded.title,
-            synopsis = excluded.synopsis,
+            synopsis = excluded.synopsis, -- This line was missing the synopsis update
             categories = excluded.categories,
             last_scraped_at = datetime('now');
     `);
