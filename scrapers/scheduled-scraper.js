@@ -90,7 +90,7 @@ async function runScraper() {
             const story = storiesOnPage[i];
             try {
                 console.log(`[DEBUG] Waiting 15s before scrape #${i + 1}...`);
-                await delay(5000); 
+                await delay(15000); 
                 console.log(`[Scraper] Scraping synopsis for: ${story.title}`);
                 const synopsisSelector = [{ selector: "section.synopsis" }];
                 const storyPageResults = await scrapeUrlWithCloudflare(story.url, synopsisSelector);
