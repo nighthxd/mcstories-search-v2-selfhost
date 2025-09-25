@@ -43,24 +43,12 @@ async function runScraper() {
     const db = await getDB();
     console.log("[DEBUG] Database connection opened.");
     try {
-        // --- NEW DIAGNOSTIC STEP 1: Enable WAL mode ---
-        console.log("[DEBUG] Enabling WAL mode for the database.");
         await db.exec('PRAGMA journal_mode = WAL;');
-
-        // --- NEW DIAGNOSTIC STEP 2: Perform a test write ---
         const testValue = Math.floor(Date.now() / 1000);
-        console.log(`[DEBUG] Performing a test write to scrape_state with value: ${testValue}`);
-        const result = await db.run('UPDATE scrape_state SET last_scraped_category_index = ? WHERE id = 1', testValue);
-        if (result.changes === 0) {
-             console.error("[DEBUG] CRITICAL ERROR: The test write affected 0 rows. This means the save failed. Check for file locks or permissions.");
-        } else {
-             console.log("[DEBUG] Test write appears successful. Proceeding with scrape.");
-        }
-        // --- END DIAGNOSTIC STEPS ---
+        await db.run('UPDATE scrape_state SET last_scraped_category_index = ? WHERE id = 1', testValue);
 
         const categoryKeys = Object.keys(tags);
         const state = await db.get('SELECT last_scraped_category_index FROM scrape_state WHERE id = 1');
-        // We use the original index logic here, ignoring the test write value for sequencing
         const realLastIndex = state.last_scraped_category_index < 1000 ? state.last_scraped_category_index : -1;
         const nextIndex = (realLastIndex + 1) % categoryKeys.length;
         
@@ -141,15 +129,24 @@ async function saveStoriesToDB(stories, db) {
                 categories = excluded.categories,
                 last_scraped_at = datetime('now');
         `);
+        
+        // --- NEW DETAILED DEBUG LOGS ---
         for (const story of stories) {
             const categoriesString = story.categories.join(',');
+            console.log(`[SAVE-DEBUG] Attempting to run statement for: "${story.title.substring(0, 30)}..."`);
             await stmt.run(story.url, story.title, story.synopsis, categoriesString);
+            console.log(`[SAVE-DEBUG] -> Statement executed successfully.`);
         }
+        
+        console.log(`[SAVE-DEBUG] All statements in batch executed. Finalizing...`);
         await stmt.finalize();
+        console.log(`[SAVE-DEBUG] Statement finalized. Committing transaction...`);
         await db.exec('COMMIT;');
-        console.log("[DEBUG] Batch save complete.");
+        console.log("[SAVE-DEBUG] Transaction committed successfully. Batch save complete.");
+        // --- END NEW LOGS ---
+
     } catch (error) {
-        console.error("[DEBUG] Error during DB transaction, rolling back.", error);
+        console.error("[SAVE-DEBUG] CRITICAL ERROR during DB transaction, rolling back.", error);
         await db.exec('ROLLBACK;');
         throw error; 
     }
