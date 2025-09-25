@@ -45,7 +45,6 @@ async function scrapeUrlWithCloudflare(urlToScrape, elementSelectors) {
 async function runScraper() {
     const db = await getDB();
     try {
-        // --- MODIFIED: Sequential category scraping ---
         const categoryKeys = Object.keys(tags);
         const state = await db.get('SELECT last_scraped_category_index FROM scrape_state WHERE id = 1');
         const nextIndex = (state.last_scraped_category_index + 1) % categoryKeys.length;
@@ -80,6 +79,7 @@ async function runScraper() {
 
         if (storiesOnPage.length === 0) {
             console.log("[Scraper] No stories found on index page. Exiting.");
+            await db.close(); // --- Ensure DB is closed here too ---
             return;
         }
 
@@ -95,6 +95,9 @@ async function runScraper() {
                 let synopsis = storyPageResults.length > 0 && storyPageResults[0].text ? storyPageResults[0].text.trim() : '';
                 storiesWithData.push({ ...story, synopsis });
 
+                // --- NEW DEBUG LOG ---
+                console.log(`[DEBUG] Scraped: "${story.title}". Synopsis length: ${synopsis.length}`);
+
             } catch (error) {
                 console.error(`[Scraper] Failed to scrape synopsis for ${story.title}:`, error);
                 storiesWithData.push({ ...story, synopsis: '' });
@@ -102,34 +105,44 @@ async function runScraper() {
             await delay(5000);
         }
 
+        // --- NEW DEBUG LOGS ---
+        console.log(`[DEBUG] Finished scraping all synopses. Total stories with data: ${storiesWithData.length}`);
+        if (storiesWithData.length > 0) {
+            console.log(`[DEBUG] First story object being sent to save:`, JSON.stringify(storiesWithData[0], null, 2));
+        }
+
         console.log(`[Scraper] Saving ${storiesWithData.length} stories to the database...`);
         await saveStoriesToDB(storiesWithData, db);
 
-        // --- MODIFIED: Update scrape state ---
+        // --- NEW DEBUG LOG ---
+        console.log(`[DEBUG] saveStoriesToDB function has completed.`);
+
         await db.run('UPDATE scrape_state SET last_scraped_category_index = ? WHERE id = 1', nextIndex);
         console.log('[Scraper] Scrape and save successful.');
 
     } catch (error) {
         console.error("[Scraper] Error in scheduled scrape handler:", error);
     } finally {
+        // --- NEW DEBUG LOG ---
+        console.log("[DEBUG] Reached 'finally' block, closing DB connection.");
         await db.close();
     }
 }
 
-// --- MODIFIED: Database save function ---
 async function saveStoriesToDB(stories, db) {
+    // --- NEW DEBUG LOG ---
+    console.log(`[DEBUG] Inside saveStoriesToDB function.`);
     const stmt = await db.prepare(`
         INSERT INTO stories (url, title, synopsis, categories, last_scraped_at) 
         VALUES (?, ?, ?, ?, datetime('now'))
         ON CONFLICT(url) DO UPDATE SET
             title = excluded.title,
-            synopsis = excluded.synopsis, -- This line was missing the synopsis update
+            synopsis = excluded.synopsis,
             categories = excluded.categories,
             last_scraped_at = datetime('now');
     `);
 
     for (const story of stories) {
-        // Join categories array into a single string
         const categoriesString = story.categories.join(',');
         await stmt.run(story.url, story.title, story.synopsis, categoriesString);
     }
