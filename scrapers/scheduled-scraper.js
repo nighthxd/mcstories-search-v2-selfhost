@@ -85,7 +85,7 @@ async function runScraper() {
 
         console.log(`[Scraper] Found ${storiesOnPage.length} stories. Fetching synopses...`);
         const storiesWithData = [];
-        for (const story of storiesOnPage) {
+        for (const story of storiesOnPage.slice(0, 5)) { 
             try {
                 await delay(10000);
                 console.log(`[Scraper] Scraping synopsis for: ${story.title}`);
