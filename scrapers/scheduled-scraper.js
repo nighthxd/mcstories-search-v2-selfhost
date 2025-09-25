@@ -134,21 +134,38 @@ async function runScraper() {
 
 async function saveStoriesToDB(stories, db) {
     console.log(`[DEBUG] Inside saveStoriesToDB function with ${stories.length} stories.`);
-    const stmt = await db.prepare(`
-        INSERT INTO stories (url, title, synopsis, categories, last_scraped_at) 
-        VALUES (?, ?, ?, ?, datetime('now'))
-        ON CONFLICT(url) DO UPDATE SET
-            title = excluded.title,
-            synopsis = excluded.synopsis,
-            categories = excluded.categories,
-            last_scraped_at = datetime('now');
-    `);
+    
+    // --- MODIFIED: Explicit transaction control for safety ---
+    try {
+        console.log("[DEBUG] Beginning database transaction...");
+        await db.exec('BEGIN TRANSACTION;');
 
-    for (const story of stories) {
-        const categoriesString = story.categories.join(',');
-        await stmt.run(story.url, story.title, story.synopsis, categoriesString);
+        const stmt = await db.prepare(`
+            INSERT INTO stories (url, title, synopsis, categories, last_scraped_at) 
+            VALUES (?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(url) DO UPDATE SET
+                title = excluded.title,
+                synopsis = excluded.synopsis,
+                categories = excluded.categories,
+                last_scraped_at = datetime('now');
+        `);
+
+        for (const story of stories) {
+            const categoriesString = story.categories.join(',');
+            await stmt.run(story.url, story.title, story.synopsis, categoriesString);
+        }
+        await stmt.finalize();
+
+        console.log("[DEBUG] Committing transaction...");
+        await db.exec('COMMIT;');
+
+    } catch (error) {
+        // This will catch any errors during the transaction and log them.
+        console.error("[DEBUG] Error during database transaction, rolling back.", error);
+        await db.exec('ROLLBACK;');
+        // Re-throw the error so the main handler knows something went wrong.
+        throw error; 
     }
-    await stmt.finalize();
 }
 
 module.exports = { runScraper };
