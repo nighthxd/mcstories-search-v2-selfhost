@@ -11,7 +11,7 @@ const sqlite3 = require('sqlite3');
 const { runScraper } = require('./scrapers/scheduled-scraper');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 80;
 let db;
 
 // --- MIDDLEWARE ---
