@@ -103,10 +103,9 @@ async function runScraper() {
         }
 
         // ── 4. Prune stories deleted from MCStories ───────────────────────────
-        // A story with last_seen_at older than 7 days hasn't appeared on any tag
-        // page in that time. A full scrape cycle completes in ~26 hours, so
-        // 7 days is a very conservative buffer before deleting.
-        // Stories with NULL last_seen_at (added before this migration) are skipped.
+        // Full cycle = 26 categories × 1 run/day = 26 days.
+        // 45-day threshold gives a full cycle + ~3 weeks buffer before deleting.
+        // Stories with NULL last_seen_at (legacy rows) are never touched here.
         const pruned = await pruneStaleStories(db);
         if (pruned > 0) {
             console.log(`[Scraper] Pruned ${pruned} stale stories no longer on MCStories.`);
@@ -218,21 +217,23 @@ async function saveSynopses(batch, db) {
 }
 
 /**
- * Delete stories whose last_seen_at is older than 7 days.
- * These have not appeared on any MCStories tag page in that window and are
- * almost certainly removed from the site.
+ * Delete stories not seen on any tag page in the past 45 days.
  *
- * Cascade: user_reads rows are automatically removed via the FK ON DELETE CASCADE.
- * FTS:     the stories_ad trigger keeps the FTS index in sync automatically.
+ * Why 45 days: the scraper runs daily across 26 categories, so a full cycle
+ * takes 26 days. 45 days = one full cycle + ~19 days buffer, meaning a story
+ * must be absent from every tag page for nearly two full cycles before removal.
  *
- * Stories with NULL last_seen_at (scraped before this migration) are left alone —
- * they will accumulate last_seen_at values naturally over the next full cycle.
+ * Cascade: user_reads rows are removed automatically via FK ON DELETE CASCADE.
+ * FTS:     the stories_ad trigger keeps the search index in sync.
+ *
+ * Stories with NULL last_seen_at (added before this column existed) are skipped —
+ * they accumulate a value naturally as their categories get scraped.
  */
 async function pruneStaleStories(db) {
     const result = await db.run(`
         DELETE FROM stories
         WHERE last_seen_at IS NOT NULL
-          AND last_seen_at < datetime('now', '-7 days')
+          AND last_seen_at < datetime('now', '-45 days')
     `);
     return result.changes;
 }
