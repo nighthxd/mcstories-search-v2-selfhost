@@ -554,6 +554,8 @@ describe('Page routes', () => {
     });
 
     test('GET /admin serves admin page for admin users', async () => {
+        // adminAgent is set in the Admin API beforeAll (same module scope)
+        expect(adminAgent).toBeTruthy();
         const res = await adminAgent.get('/admin');
         expect(res.status).toBe(200);
     });

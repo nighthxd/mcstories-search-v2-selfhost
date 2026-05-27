@@ -44,14 +44,18 @@ app.use(session({
 }));
 
 // --- RATE LIMITER (auth endpoints only) ---
-const authLimiter = rateLimit({
-    windowMs:              15 * 60 * 1000,
-    max:                   5,
-    skipSuccessfulRequests: true,
-    standardHeaders:       true,
-    legacyHeaders:         false,
-    message: { error: 'Too many attempts. Please try again in 15 minutes.' }
-});
+// Bypassed in test mode so integration tests can send multiple auth requests
+// without hitting the 5-attempt window.
+const authLimiter = process.env.NODE_ENV === 'test'
+    ? (req, res, next) => next()
+    : rateLimit({
+          windowMs:              15 * 60 * 1000,
+          max:                   5,
+          skipSuccessfulRequests: true,
+          standardHeaders:       true,
+          legacyHeaders:         false,
+          message: { error: 'Too many attempts. Please try again in 15 minutes.' }
+      });
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
