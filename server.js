@@ -107,7 +107,11 @@ app.post('/git-webhook', bodyParser.raw({ type: 'application/json' }), (req, res
     const signature = req.headers['x-hub-signature-256'];
     const hash      = `sha256=${crypto.createHmac('sha256', secret).update(req.body).digest('hex')}`;
 
-    if (signature !== hash) {
+    // Use timingSafeEqual to prevent timing-based secret leakage
+    const sigBuf  = Buffer.from(signature || '');
+    const hashBuf = Buffer.from(hash);
+    const valid   = sigBuf.length === hashBuf.length && crypto.timingSafeEqual(sigBuf, hashBuf);
+    if (!valid) {
         console.error("Webhook signature verification failed!");
         return res.status(401).send('Signature mismatch');
     }
