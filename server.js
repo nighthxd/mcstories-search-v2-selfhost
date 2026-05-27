@@ -642,9 +642,12 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Start HTTP server only when run directly (not when required by tests).
+// Default bind to 127.0.0.1 so Nginx is the only public entry point.
+// Override via HOST env var if needed (e.g. HOST=0.0.0.0 for Docker).
 if (require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`Server is running at http://localhost:${PORT}`);
+    const HOST = process.env.HOST || '127.0.0.1';
+    app.listen(PORT, HOST, () => {
+        console.log(`Server is running at http://${HOST}:${PORT}`);
     });
 }
 
