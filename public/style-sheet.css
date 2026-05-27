@@ -987,3 +987,256 @@ body.dark-mode .req-unmet {
     background-color: rgba(220, 38, 38, 0.2);
     color: #f87171;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Admin panel (admin.html)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Section cards ─────────────────────────────────────────────────────── */
+.admin-section {
+    background-color: var(--bg-color);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    text-align: left;
+}
+
+.admin-section-title {
+    margin: 0 0 16px;
+    font-size: 1.1em;
+    color: var(--heading-color);
+    text-align: left;
+}
+
+/* ─── Add-user inline form ───────────────────────────────────────────────── */
+.admin-add-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.admin-add-form input {
+    flex: 1;
+    min-width: 180px;
+    padding: 9px 12px;
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    font-size: 0.95em;
+    font-family: inherit;
+    background-color: var(--container-bg);
+    color: var(--text-color);
+    transition: border-color 0.2s;
+}
+
+.admin-add-form input:focus {
+    outline: none;
+    border-color: var(--input-focus-border);
+}
+
+/* ─── Shared button base ─────────────────────────────────────────────────── */
+.admin-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    font-size: 0.9em;
+    font-family: inherit;
+    cursor: pointer;
+    background: none;
+    color: var(--text-color);
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+    white-space: nowrap;
+}
+
+.admin-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* Small variant for table action buttons */
+.admin-btn-sm {
+    padding: 5px 11px;
+    font-size: 0.82em;
+}
+
+/* Colours */
+.admin-btn-primary {
+    background-color: var(--button-bg);
+    border-color: var(--button-bg);
+    color: var(--button-text);
+}
+.admin-btn-primary:hover:not(:disabled) {
+    background-color: var(--button-hover-bg);
+    border-color: var(--button-hover-bg);
+}
+
+.admin-btn-delete {
+    border-color: #dc2626;
+    color: #dc2626;
+}
+.admin-btn-delete:hover:not(:disabled) {
+    background-color: #dc2626;
+    color: #fff;
+}
+
+.admin-btn-suspend {
+    border-color: #d97706;
+    color: #d97706;
+}
+.admin-btn-suspend:hover:not(:disabled) {
+    background-color: #d97706;
+    color: #fff;
+}
+
+.admin-btn-unsuspend {
+    border-color: #16a34a;
+    color: #16a34a;
+}
+.admin-btn-unsuspend:hover:not(:disabled) {
+    background-color: #16a34a;
+    color: #fff;
+}
+
+.admin-btn-reset {
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+.admin-btn-reset:hover:not(:disabled) {
+    background-color: var(--border-color);
+    color: #fff;
+}
+
+/* ─── Feedback messages ──────────────────────────────────────────────────── */
+.admin-feedback {
+    font-size: 0.88em;
+    margin: 8px 0 0;
+    min-height: 1.2em;
+}
+
+.admin-feedback-error   { color: #dc2626; }
+.admin-feedback-success { color: #16a34a; }
+
+/* ─── Users table ────────────────────────────────────────────────────────── */
+.admin-table-wrap {
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 0.92em;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--input-border);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.admin-table th {
+    background-color: var(--button-hover-bg);
+    color: var(--button-text);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.admin-table tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-row-suspended td {
+    opacity: 0.6;
+}
+
+.admin-col-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.admin-col-date,
+.admin-col-reads {
+    white-space: nowrap;
+    color: var(--disclaimer-text);
+    font-size: 0.9em;
+}
+
+/* ─── Role / status badges ───────────────────────────────────────────────── */
+.admin-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.78em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.admin-badge-admin     { background: rgba(99,102,241,0.18); color: #4f46e5; }
+.admin-badge-user      { background: rgba(0,0,0,0.07);      color: var(--disclaimer-text); }
+.admin-badge-active    { background: rgba(34,197,94,0.15);  color: #15803d; }
+.admin-badge-suspended { background: rgba(220,38,38,0.12);  color: #b91c1c; }
+
+body.dark-mode .admin-badge-admin     { background: rgba(99,102,241,0.25); color: #a5b4fc; }
+body.dark-mode .admin-badge-active    { background: rgba(34,197,94,0.20);  color: #4ade80; }
+body.dark-mode .admin-badge-suspended { background: rgba(220,38,38,0.22);  color: #f87171; }
+
+.admin-self-badge {
+    font-size: 0.8em;
+    color: var(--disclaimer-text);
+    font-weight: normal;
+}
+
+/* ─── Reset password modal ───────────────────────────────────────────────── */
+.admin-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9000;
+    padding: 20px;
+}
+
+.admin-modal {
+    background-color: var(--container-bg);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    padding: 28px 32px;
+    width: 100%;
+    max-width: 400px;
+    transition: background-color 0.3s;
+}
+
+.admin-modal-heading {
+    margin: 0 0 4px;
+    font-size: 1.2em;
+    color: var(--heading-color);
+    text-align: left;
+}
+
+.admin-modal-sub {
+    font-size: 0.88em;
+    color: var(--disclaimer-text);
+    margin: 0 0 18px;
+}
+
+.admin-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.admin-pw-hint {
+    font-size: 0.8em;
+    color: var(--disclaimer-text);
+    margin: 4px 0 8px;
+}

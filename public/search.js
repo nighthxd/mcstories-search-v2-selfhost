@@ -39,7 +39,7 @@ async function initAuth() {
     try {
         const res  = await fetch('/api/auth/me');
         const data = await res.json();
-        currentUser = data.loggedIn ? { username: data.username } : null;
+        currentUser = data.loggedIn ? { username: data.username, isAdmin: data.isAdmin } : null;
     } catch {
         currentUser = null;
     }
@@ -51,8 +51,12 @@ function renderAuthStatus() {
     if (!bar) return;
 
     if (currentUser) {
+        const adminLink = currentUser.isAdmin
+            ? `<a href="/admin" class="auth-link-btn">Admin</a>`
+            : '';
         bar.innerHTML =
             `<span class="auth-greeting">Hi, <strong>${escapeHtml(currentUser.username)}</strong></span>` +
+            adminLink +
             `<button class="auth-logout-btn" onclick="logout()">Log out</button>`;
     } else {
         bar.innerHTML =

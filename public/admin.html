@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel — MCStories Search</title>
+    <link rel="stylesheet" type="text/css" href="style-sheet.css">
+</head>
+<body>
+    <article id="mcstories">
+        <h3 class="title"><a href="/" class="home-link">MCStories Search</a></h3>
+        <h3 class="byline">Admin Panel</h3>
+        <button id="theme-toggle" aria-label="Toggle Dark Mode"></button>
+    </article>
+
+    <div class="body-container">
+
+        <!-- ── Add user ── -->
+        <div class="admin-section">
+            <h3 class="admin-section-title">Add User</h3>
+            <form id="add-user-form" class="admin-add-form" onsubmit="addUser(event)">
+                <input type="text" id="new-username" placeholder="Username (3–20 chars, letters/numbers/_)"
+                       autocomplete="off" required>
+                <input type="password" id="new-password"
+                       placeholder="Password (12+ chars, uppercase, number, symbol)" required>
+                <button type="submit" class="admin-btn admin-btn-primary">Add User</button>
+            </form>
+            <p id="add-user-error"   class="admin-feedback admin-feedback-error"  aria-live="polite"></p>
+            <p id="add-user-success" class="admin-feedback admin-feedback-success" aria-live="polite"></p>
+        </div>
+
+        <!-- ── User table ── -->
+        <div class="admin-section">
+            <h3 class="admin-section-title">All Users</h3>
+            <div id="users-table-container" class="admin-table-wrap">
+                <p class="status-message">Loading…</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── Reset password modal ── -->
+    <div id="reset-modal-overlay" class="admin-modal-overlay" style="display:none"
+         role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+        <div class="admin-modal">
+            <h3 id="reset-modal-title" class="admin-modal-heading">Reset Password</h3>
+            <p id="reset-modal-user" class="admin-modal-sub"></p>
+
+            <div class="form-group">
+                <label for="reset-password-input">New Password</label>
+                <input type="password" id="reset-password-input"
+                       placeholder="12+ chars, uppercase, number, symbol"
+                       autocomplete="new-password">
+            </div>
+            <p class="admin-pw-hint">Must be 12+ chars with an uppercase letter, a number, and a special character.</p>
+
+            <p id="reset-modal-error" class="admin-feedback admin-feedback-error" aria-live="polite"></p>
+
+            <div class="admin-modal-actions">
+                <button class="admin-btn" onclick="closeResetModal()">Cancel</button>
+                <button class="admin-btn admin-btn-primary" onclick="confirmResetPassword()">Update Password</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

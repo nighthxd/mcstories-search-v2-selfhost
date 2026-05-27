@@ -1,19 +1,19 @@
 // server.js
 require('dotenv').config();
-const express    = require('express');
-const crypto     = require('crypto');
-const https      = require('https');
+const express     = require('express');
+const crypto      = require('crypto');
+const https       = require('https');
 const { execFile, fork } = require('child_process');
-const bodyParser = require('body-parser');
+const bodyParser  = require('body-parser');
 const compression = require('compression');
-const path       = require('path');
-const cron       = require('node-cron');
-const { open }   = require('sqlite');
-const sqlite3    = require('sqlite3');
-const bcrypt     = require('bcrypt');
-const session    = require('express-session');
+const path        = require('path');
+const cron        = require('node-cron');
+const { open }    = require('sqlite');
+const sqlite3     = require('sqlite3');
+const bcrypt      = require('bcrypt');
+const session     = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
-const rateLimit  = require('express-rate-limit');
+const rateLimit   = require('express-rate-limit');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -44,7 +44,7 @@ app.use(session({
 
 // --- RATE LIMITER (auth endpoints only) ---
 const authLimiter = rateLimit({
-    windowMs:              15 * 60 * 1000,   // 15 minutes
+    windowMs:              15 * 60 * 1000,
     max:                   5,
     skipSuccessfulRequests: true,
     standardHeaders:       true,
@@ -52,9 +52,9 @@ const authLimiter = rateLimit({
     message: { error: 'Too many attempts. Please try again in 15 minutes.' }
 });
 
-// --- HELPERS ---
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-/** Verify a Cloudflare Turnstile token server-side. */
+/** Cloudflare Turnstile server-side verification. */
 function verifyTurnstile(token) {
     return new Promise((resolve) => {
         const body = JSON.stringify({
@@ -80,21 +80,34 @@ function verifyTurnstile(token) {
     });
 }
 
-/** 3–20 chars, alphanumeric + underscores only. */
-function validateUsername(username) {
-    return typeof username === 'string' && /^[a-zA-Z0-9_]{3,20}$/.test(username);
+/** 3–20 chars, alphanumeric + underscores. */
+function validateUsername(u) {
+    return typeof u === 'string' && /^[a-zA-Z0-9_]{3,20}$/.test(u);
 }
 
-/** 12+ chars, must include uppercase, digit, and special character. */
-function validatePassword(password) {
-    if (typeof password !== 'string' || password.length < 12) return false;
-    if (!/[A-Z]/.test(password))       return false;
-    if (!/[0-9]/.test(password))       return false;
-    if (!/[^a-zA-Z0-9]/.test(password)) return false;
+/** 12+ chars, must have uppercase, digit, and special character. */
+function validatePassword(p) {
+    if (typeof p !== 'string' || p.length < 12) return false;
+    if (!/[A-Z]/.test(p))        return false;
+    if (!/[0-9]/.test(p))        return false;
+    if (!/[^a-zA-Z0-9]/.test(p)) return false;
     return true;
 }
 
-// --- WEBHOOK ---
+/** Express middleware — rejects non-admin requests with 401/403. */
+async function requireAdmin(req, res, next) {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in.' });
+    try {
+        const user = await db.get('SELECT is_admin FROM users WHERE id = ?', req.session.userId);
+        if (!user || !user.is_admin) return res.status(403).json({ error: 'Access denied.' });
+        next();
+    } catch (err) {
+        console.error('requireAdmin error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+}
+
+// ─── WEBHOOK ──────────────────────────────────────────────────────────────────
 // ⚠️ Raw body parser only for this route — required for HMAC signature verification
 app.post('/git-webhook', bodyParser.raw({ type: 'application/json' }), (req, res) => {
     console.log("Webhook received...");
@@ -124,10 +137,10 @@ app.post('/git-webhook', bodyParser.raw({ type: 'application/json' }), (req, res
     res.status(200).send('Deployment started.');
 });
 
-// --- JSON BODY PARSER (for auth + reads routes) ---
+// --- JSON BODY PARSER (for auth, admin, and reads routes) ---
 app.use(express.json());
 
-// --- DATABASE INIT ---
+// ─── DATABASE INIT ────────────────────────────────────────────────────────────
 (async () => {
     db = await open({
         filename: process.env.DATABASE_PATH || './database/mcstories-db.sqlite',
@@ -143,13 +156,11 @@ app.use(express.json());
     // Index on categories for faster tag filtering
     await db.exec('CREATE INDEX IF NOT EXISTS idx_categories ON stories(categories);');
 
-    // FTS5 virtual table for fast full-text search on title + synopsis
+    // FTS5 virtual table
     await db.exec(`
         CREATE VIRTUAL TABLE IF NOT EXISTS stories_fts
         USING fts5(title, synopsis, content='stories', content_rowid='id');
     `);
-
-    // Triggers to keep the FTS index in sync when the scraper inserts/updates stories
     await db.exec(`
         CREATE TRIGGER IF NOT EXISTS stories_ai AFTER INSERT ON stories BEGIN
             INSERT INTO stories_fts(rowid, title, synopsis)
@@ -171,7 +182,7 @@ app.use(express.json());
         END;
     `);
 
-    // One-time FTS index population
+    // One-time FTS population
     const ftsCount     = await db.get('SELECT COUNT(*) as count FROM stories_fts');
     const storiesCount = await db.get('SELECT COUNT(*) as count FROM stories');
     if (ftsCount.count < storiesCount.count) {
@@ -180,25 +191,46 @@ app.use(express.json());
         console.log('[DB] FTS index built successfully.');
     }
 
-    // Add marked_new_at column to stories if it doesn't exist yet (safe migration)
-    const storyColumns  = await db.all("PRAGMA table_info(stories)");
-    const hasMarkedNewAt = storyColumns.some(col => col.name === 'marked_new_at');
-    if (!hasMarkedNewAt) {
+    // ── stories.marked_new_at (safe migration) ──
+    const storyColumns = await db.all("PRAGMA table_info(stories)");
+    if (!storyColumns.some(c => c.name === 'marked_new_at')) {
         await db.exec("ALTER TABLE stories ADD COLUMN marked_new_at TEXT;");
         console.log('[DB] Added marked_new_at column to stories table.');
     }
 
-    // Users table
+    // ── users table ──
     await db.exec(`
         CREATE TABLE IF NOT EXISTS users (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            username   TEXT    NOT NULL UNIQUE COLLATE NOCASE,
-            password   TEXT    NOT NULL,
-            created_at TEXT    DEFAULT (datetime('now'))
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            username     TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+            password     TEXT    NOT NULL,
+            is_admin     INTEGER NOT NULL DEFAULT 0,
+            is_suspended INTEGER NOT NULL DEFAULT 0,
+            created_at   TEXT    DEFAULT (datetime('now'))
         );
     `);
 
-    // User reads table
+    // Safe migrations for columns added after initial deploy
+    const userColumns   = await db.all("PRAGMA table_info(users)");
+    const userColNames  = userColumns.map(c => c.name);
+    if (!userColNames.includes('is_admin')) {
+        await db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;");
+        console.log('[DB] Added is_admin column to users table.');
+    }
+    if (!userColNames.includes('is_suspended')) {
+        await db.exec("ALTER TABLE users ADD COLUMN is_suspended INTEGER NOT NULL DEFAULT 0;");
+        console.log('[DB] Added is_suspended column to users table.');
+    }
+
+    // Grant admin flag to the 'admin' account (idempotent)
+    const adminGrant = await db.run(
+        "UPDATE users SET is_admin = 1 WHERE username = 'admin' COLLATE NOCASE"
+    );
+    if (adminGrant.changes > 0) {
+        console.log('[DB] Granted admin privileges to "admin" account.');
+    }
+
+    // ── user_reads table ──
     await db.exec(`
         CREATE TABLE IF NOT EXISTS user_reads (
             user_id  INTEGER NOT NULL,
@@ -214,26 +246,49 @@ app.use(express.json());
     console.log(`[DB] Connected. ${storiesCount.count.toLocaleString()} stories in database.`);
 })();
 
-// --- STATIC FILES — 7-day browser cache for fonts, CSS, JS ---
+// ─── STATIC FILES — 7-day browser cache ──────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public'), {
     maxAge: '7d',
     etag:   true
 }));
 
-// --- AUTH PAGE ROUTES ---
+// ─── PAGE ROUTES ──────────────────────────────────────────────────────────────
 app.get('/login',    (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
 
-// --- API: Auth — me ---
-app.get('/api/auth/me', (req, res) => {
-    if (req.session.userId) {
-        res.json({ loggedIn: true, username: req.session.username });
-    } else {
+// Admin page — server-side auth check; redirect if not logged in or not admin
+app.get('/admin', async (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    try {
+        const user = await db.get('SELECT is_admin FROM users WHERE id = ?', req.session.userId);
+        if (!user || !user.is_admin) return res.redirect('/');
+        res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+    } catch {
+        res.redirect('/');
+    }
+});
+
+// ─── API: AUTH ────────────────────────────────────────────────────────────────
+
+// GET /api/auth/me — also checks for suspension, auto-destroys session if suspended/deleted
+app.get('/api/auth/me', async (req, res) => {
+    if (!req.session.userId) return res.json({ loggedIn: false });
+    try {
+        const user = await db.get(
+            'SELECT username, is_admin, is_suspended FROM users WHERE id = ?',
+            req.session.userId
+        );
+        if (!user || user.is_suspended) {
+            req.session.destroy();
+            return res.json({ loggedIn: false });
+        }
+        res.json({ loggedIn: true, username: user.username, isAdmin: user.is_admin === 1 });
+    } catch {
         res.json({ loggedIn: false });
     }
 });
 
-// --- API: Auth — register ---
+// POST /api/auth/register
 app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
         const { username, password, turnstileToken } = req.body;
@@ -249,16 +304,13 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         }
 
         const existing = await db.get('SELECT id FROM users WHERE username = ?', username);
-        if (existing) {
-            return res.status(409).json({ error: 'That username is already taken.' });
-        }
+        if (existing) return res.status(409).json({ error: 'That username is already taken.' });
 
         const hash   = await bcrypt.hash(password, 12);
         const result = await db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash]);
 
         req.session.userId   = result.lastID;
         req.session.username = username;
-
         res.json({ success: true });
     } catch (error) {
         console.error('Register error:', error);
@@ -266,7 +318,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     }
 });
 
-// --- API: Auth — login ---
+// POST /api/auth/login
 app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
         const { username, password, turnstileToken } = req.body;
@@ -276,16 +328,18 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         }
 
         const user = await db.get(
-            'SELECT id, username, password FROM users WHERE username = ? COLLATE NOCASE',
+            'SELECT id, username, password, is_suspended FROM users WHERE username = ? COLLATE NOCASE',
             username
         );
         if (!user || !await bcrypt.compare(password, user.password)) {
             return res.status(401).json({ error: 'Invalid username or password.' });
         }
+        if (user.is_suspended) {
+            return res.status(403).json({ error: 'Your account has been suspended. Please contact the administrator.' });
+        }
 
         req.session.userId   = user.id;
         req.session.username = user.username;
-
         res.json({ success: true });
     } catch (error) {
         console.error('Login error:', error);
@@ -293,12 +347,107 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     }
 });
 
-// --- API: Auth — logout ---
+// POST /api/auth/logout
 app.post('/api/auth/logout', (req, res) => {
     req.session.destroy(() => res.json({ success: true }));
 });
 
-// --- API: Reads — mark as read ---
+// ─── API: ADMIN ───────────────────────────────────────────────────────────────
+
+// GET /api/admin/users — list all users with read counts
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+    try {
+        const users = await db.all(`
+            SELECT u.id, u.username, u.created_at, u.is_admin, u.is_suspended,
+                   COUNT(ur.story_id) AS read_count
+            FROM users u
+            LEFT JOIN user_reads ur ON u.id = ur.user_id
+            GROUP BY u.id
+            ORDER BY u.created_at ASC
+        `);
+        res.json({ users });
+    } catch (error) {
+        console.error('Admin list users error:', error);
+        res.status(500).json({ error: 'Failed to fetch users.' });
+    }
+});
+
+// POST /api/admin/users — create a user (no Turnstile needed — admin is authenticated)
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!validateUsername(username)) {
+            return res.status(400).json({ error: 'Username must be 3–20 characters and contain only letters, numbers, and underscores.' });
+        }
+        if (!validatePassword(password)) {
+            return res.status(400).json({ error: 'Password must be at least 12 characters and include an uppercase letter, a number, and a special character.' });
+        }
+        const existing = await db.get('SELECT id FROM users WHERE username = ?', username);
+        if (existing) return res.status(409).json({ error: 'That username is already taken.' });
+
+        const hash = await bcrypt.hash(password, 12);
+        await db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Admin create user error:', error);
+        res.status(500).json({ error: 'Failed to create user.' });
+    }
+});
+
+// DELETE /api/admin/users/:id — delete user + cascade user_reads via FK
+app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
+    const targetId = parseInt(req.params.id, 10);
+    if (!targetId) return res.status(400).json({ error: 'Invalid user ID.' });
+    if (targetId === req.session.userId) {
+        return res.status(400).json({ error: 'You cannot delete your own account.' });
+    }
+    try {
+        const result = await db.run('DELETE FROM users WHERE id = ?', targetId);
+        if (result.changes === 0) return res.status(404).json({ error: 'User not found.' });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Admin delete user error:', error);
+        res.status(500).json({ error: 'Failed to delete user.' });
+    }
+});
+
+// POST /api/admin/users/:id/suspend — suspend or unsuspend
+app.post('/api/admin/users/:id/suspend', requireAdmin, async (req, res) => {
+    const targetId = parseInt(req.params.id, 10);
+    if (!targetId) return res.status(400).json({ error: 'Invalid user ID.' });
+    if (targetId === req.session.userId) {
+        return res.status(400).json({ error: 'You cannot suspend your own account.' });
+    }
+    const { suspended } = req.body;
+    try {
+        await db.run('UPDATE users SET is_suspended = ? WHERE id = ?', [suspended ? 1 : 0, targetId]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Admin suspend error:', error);
+        res.status(500).json({ error: 'Failed to update user.' });
+    }
+});
+
+// POST /api/admin/users/:id/reset-password
+app.post('/api/admin/users/:id/reset-password', requireAdmin, async (req, res) => {
+    const targetId = parseInt(req.params.id, 10);
+    if (!targetId) return res.status(400).json({ error: 'Invalid user ID.' });
+    const { newPassword } = req.body;
+    if (!validatePassword(newPassword)) {
+        return res.status(400).json({ error: 'Password must be at least 12 characters and include an uppercase letter, a number, and a special character.' });
+    }
+    try {
+        const hash = await bcrypt.hash(newPassword, 12);
+        await db.run('UPDATE users SET password = ? WHERE id = ?', [hash, targetId]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Admin reset password error:', error);
+        res.status(500).json({ error: 'Failed to reset password.' });
+    }
+});
+
+// ─── API: READS ───────────────────────────────────────────────────────────────
+
 app.post('/api/reads/:story_id', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in.' });
     const storyId = parseInt(req.params.story_id, 10);
@@ -315,7 +464,6 @@ app.post('/api/reads/:story_id', async (req, res) => {
     }
 });
 
-// --- API: Reads — unmark as read ---
 app.delete('/api/reads/:story_id', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in.' });
     const storyId = parseInt(req.params.story_id, 10);
@@ -332,7 +480,7 @@ app.delete('/api/reads/:story_id', async (req, res) => {
     }
 });
 
-// --- API: Total story count ---
+// ─── API: COUNT ───────────────────────────────────────────────────────────────
 app.get('/api/count', async (req, res) => {
     try {
         const result = await db.get('SELECT COUNT(*) as count FROM stories');
@@ -343,7 +491,7 @@ app.get('/api/count', async (req, res) => {
     }
 });
 
-// --- API: Search with FTS, tag filtering, pagination, read status, and NEW badge ---
+// ─── API: SEARCH ──────────────────────────────────────────────────────────────
 app.get('/api/search', async (req, res) => {
     try {
         const { query, categories, excludedCategories, page = 1, limit = 50 } = req.query;
@@ -352,10 +500,9 @@ app.get('/api/search', async (req, res) => {
         const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
         const offset   = (pageNum - 1) * limitNum;
 
-        const includeTags = categories          ? categories.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)          : [];
-        const excludeTags = excludedCategories  ? excludedCategories.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)  : [];
+        const includeTags = categories         ? categories.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)         : [];
+        const excludeTags = excludedCategories ? excludedCategories.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
 
-        // Sanitise query for FTS5
         const rawQuery = (query || '').trim();
         const ftsQuery = rawQuery
             .replace(/[^\w\s]/g, ' ')
@@ -367,7 +514,7 @@ app.get('/api/search', async (req, res) => {
 
         const usesFts = ftsQuery.length > 0;
 
-        // -1 means "no user" — the LEFT JOIN ON ur.user_id = ? will never match, giving NULL → is_read = 0
+        // -1 → never matches ur.user_id, so is_read is always 0 for guests
         const userId = req.session.userId || -1;
 
         let sql, countSql;
@@ -452,7 +599,7 @@ app.get('/api/search', async (req, res) => {
     }
 });
 
-// --- SCHEDULED SCRAPER — runs as a forked child process ---
+// ─── SCHEDULED SCRAPER ────────────────────────────────────────────────────────
 const schedule = process.env.SCRAPE_SCHEDULE || '0 * * * *';
 console.log(`[Cron] Scraper scheduled: "${schedule}"`);
 
@@ -460,11 +607,8 @@ cron.schedule(schedule, () => {
     console.log('[Cron] Triggered: forking scraper process...');
     const child = fork(path.join(__dirname, 'scrapers/scraper-worker.js'));
     child.on('exit', code => {
-        if (code !== 0) {
-            console.error(`[Cron] Scraper process exited with code ${code}`);
-        } else {
-            console.log('[Cron] Scraper process finished successfully.');
-        }
+        if (code !== 0) console.error(`[Cron] Scraper process exited with code ${code}`);
+        else            console.log('[Cron] Scraper process finished successfully.');
     });
 });
 
