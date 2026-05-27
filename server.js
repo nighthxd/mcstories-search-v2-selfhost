@@ -191,11 +191,16 @@ app.use(express.json());
         console.log('[DB] FTS index built successfully.');
     }
 
-    // ── stories.marked_new_at (safe migration) ──
-    const storyColumns = await db.all("PRAGMA table_info(stories)");
-    if (!storyColumns.some(c => c.name === 'marked_new_at')) {
+    // ── stories column migrations (safe) ──
+    const storyColumns  = await db.all("PRAGMA table_info(stories)");
+    const storyColNames = storyColumns.map(c => c.name);
+    if (!storyColNames.includes('marked_new_at')) {
         await db.exec("ALTER TABLE stories ADD COLUMN marked_new_at TEXT;");
         console.log('[DB] Added marked_new_at column to stories table.');
+    }
+    if (!storyColNames.includes('last_seen_at')) {
+        await db.exec("ALTER TABLE stories ADD COLUMN last_seen_at TEXT;");
+        console.log('[DB] Added last_seen_at column to stories table.');
     }
 
     // ── users table ──
