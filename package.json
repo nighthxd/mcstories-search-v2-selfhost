@@ -1,18 +1,19 @@
-{
-  "name": "mcstories-selfhosted-scraper",
-  "version": "1.0.0",
-  "private": true,
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "body-parser": "^2.2.0",
-    "cheerio": "^1.0.0-rc.12",
-    "dotenv": "^16.6.1",
-    "express": "^4.21.2",
-    "node-cron": "^3.0.3",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7"
-  }
+﻿{
+    "name":  "mcstories-selfhosted-scraper",
+    "version":  "1.0.0",
+    "private":  true,
+    "main":  "server.js",
+    "scripts":  {
+                    "start":  "node server.js"
+                },
+    "dependencies":  {
+                         "body-parser":  "^2.2.0",
+                         "cheerio":  "^1.0.0-rc.12",
+                         "dotenv":  "^16.6.1",
+                         "express":  "^4.21.2",
+                         "node-cron":  "^3.0.3",
+                         "sqlite":  "^5.1.1",
+                         "sqlite3":  "^5.1.7",
+                         "compression":  "^1.7.5"
+                     }
 }
