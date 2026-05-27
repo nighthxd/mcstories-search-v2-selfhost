@@ -14,6 +14,7 @@ const bcrypt      = require('bcrypt');
 const session     = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 const rateLimit   = require('express-rate-limit');
+const { validateUsername, validatePassword } = require('./lib/validators');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -26,11 +27,11 @@ app.set('trust proxy', 1);
 app.use(compression());
 
 // --- SESSION ---
+// In test mode, use a separate sessions file so tests never corrupt production data.
+const _sessionDb  = process.env.NODE_ENV === 'test' ? 'sessions-test.db' : 'sessions.db';
+const _sessionDir = path.join(__dirname, 'database');
 app.use(session({
-    store: new SQLiteStore({
-        db:  'sessions.db',
-        dir: path.join(__dirname, 'database')
-    }),
+    store: new SQLiteStore({ db: _sessionDb, dir: _sessionDir }),
     secret:            process.env.SESSION_SECRET,
     resave:            false,
     saveUninitialized: false,
@@ -80,20 +81,6 @@ function verifyTurnstile(token) {
     });
 }
 
-/** 3–20 chars, alphanumeric + underscores. */
-function validateUsername(u) {
-    return typeof u === 'string' && /^[a-zA-Z0-9_]{3,20}$/.test(u);
-}
-
-/** 12+ chars, must have uppercase, digit, and special character. */
-function validatePassword(p) {
-    if (typeof p !== 'string' || p.length < 12) return false;
-    if (!/[A-Z]/.test(p))        return false;
-    if (!/[0-9]/.test(p))        return false;
-    if (!/[^a-zA-Z0-9]/.test(p)) return false;
-    return true;
-}
-
 /** Express middleware — rejects non-admin requests with 401/403. */
 async function requireAdmin(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in.' });
@@ -141,7 +128,9 @@ app.post('/git-webhook', bodyParser.raw({ type: 'application/json' }), (req, res
 app.use(express.json());
 
 // ─── DATABASE INIT ────────────────────────────────────────────────────────────
-(async () => {
+// dbReady is a promise that resolves once the DB is fully initialised.
+// Tests can `await dbReady` before sending requests.
+const dbReady = (async () => {
     db = await open({
         filename: process.env.DATABASE_PATH || './database/mcstories-db.sqlite',
         driver:   sqlite3.Database
@@ -249,7 +238,7 @@ app.use(express.json());
     await db.exec('CREATE INDEX IF NOT EXISTS idx_user_reads ON user_reads(user_id);');
 
     console.log(`[DB] Connected. ${storiesCount.count.toLocaleString()} stories in database.`);
-})();
+})();  // dbReady
 
 // ─── STATIC FILES — 7-day browser cache ──────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -298,8 +287,11 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
         const { username, password, turnstileToken } = req.body;
 
-        if (!turnstileToken || !await verifyTurnstile(turnstileToken)) {
-            return res.status(400).json({ error: 'Bot verification failed. Please try again.' });
+        // Turnstile is bypassed in test mode so integration tests don't need a real token.
+        if (process.env.NODE_ENV !== 'test') {
+            if (!turnstileToken || !await verifyTurnstile(turnstileToken)) {
+                return res.status(400).json({ error: 'Bot verification failed. Please try again.' });
+            }
         }
         if (!validateUsername(username)) {
             return res.status(400).json({ error: 'Username must be 3–20 characters and contain only letters, numbers, and underscores.' });
@@ -328,8 +320,10 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
         const { username, password, turnstileToken } = req.body;
 
-        if (!turnstileToken || !await verifyTurnstile(turnstileToken)) {
-            return res.status(400).json({ error: 'Bot verification failed. Please try again.' });
+        if (process.env.NODE_ENV !== 'test') {
+            if (!turnstileToken || !await verifyTurnstile(turnstileToken)) {
+                return res.status(400).json({ error: 'Bot verification failed. Please try again.' });
+            }
         }
 
         const user = await db.get(
@@ -604,19 +598,25 @@ app.get('/api/search', async (req, res) => {
     }
 });
 
-// ─── SCHEDULED SCRAPER ────────────────────────────────────────────────────────
-const schedule = process.env.SCRAPE_SCHEDULE || '0 * * * *';
-console.log(`[Cron] Scraper scheduled: "${schedule}"`);
-
-cron.schedule(schedule, () => {
-    console.log('[Cron] Triggered: forking scraper process...');
-    const child = fork(path.join(__dirname, 'scrapers/scraper-worker.js'));
-    child.on('exit', code => {
-        if (code !== 0) console.error(`[Cron] Scraper process exited with code ${code}`);
-        else            console.log('[Cron] Scraper process finished successfully.');
+// ─── SCHEDULED SCRAPER (disabled in test mode) ───────────────────────────────
+if (process.env.NODE_ENV !== 'test') {
+    const schedule = process.env.SCRAPE_SCHEDULE || '0 * * * *';
+    console.log(`[Cron] Scraper scheduled: "${schedule}"`);
+    cron.schedule(schedule, () => {
+        console.log('[Cron] Triggered: forking scraper process...');
+        const child = fork(path.join(__dirname, 'scrapers/scraper-worker.js'));
+        child.on('exit', code => {
+            if (code !== 0) console.error(`[Cron] Scraper process exited with code ${code}`);
+            else            console.log('[Cron] Scraper process finished successfully.');
+        });
     });
-});
+}
 
-app.listen(PORT, () => {
-    console.log(`Server is running at http://localhost:${PORT}`);
-});
+// Start HTTP server only when run directly (not when required by tests).
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Server is running at http://localhost:${PORT}`);
+    });
+}
+
+module.exports = { app, dbReady, getDb: () => db };
