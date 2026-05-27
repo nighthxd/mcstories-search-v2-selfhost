@@ -10,6 +10,7 @@
     <article id="mcstories">
         <h3 class="title">MCStories Search</h3>
         <h3 class="byline">By -=pizzaman=-</h3>
+        <p id="story-count" class="story-count-display"></p>
         <br></br>
         <button id="theme-toggle" aria-label="Toggle Dark Mode"></button>
 
@@ -193,6 +194,10 @@
                 </table>
             </div>
         </div>
+
+		<div class="filter-actions">
+			<button onclick="clearFilters()" id="clear-filters-button">Clear All Filters</button>
+		</div>
 
 		<div id="results-container">
 			</div>
