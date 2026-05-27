@@ -1,6 +1,37 @@
 /* style-sheet.css */
-/* Basic Reset & Font */
-@import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+/* Basic Reset & Font — self-hosted to avoid external CDN dependency */
+@font-face {
+    font-family: 'PT Serif';
+    src: url('WebFont/ptf55f_w.woff') format('woff'),
+         url('WebFont/ptf55f_w.ttf')  format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'PT Serif';
+    src: url('WebFont/ptf56f_w.woff') format('woff'),
+         url('WebFont/ptf56f_w.ttf')  format('truetype');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'PT Serif';
+    src: url('WebFont/ptf75f_w.woff') format('woff'),
+         url('WebFont/ptf75f_w.ttf')  format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'PT Serif';
+    src: url('WebFont/ptf76f_w.woff') format('woff'),
+         url('WebFont/ptf76f_w.ttf')  format('truetype');
+    font-weight: 700;
+    font-style: italic;
+    font-display: swap;
+}
 
 /* Ensure these display properties from your original CSS are present */
 article, aside, details, figcaption, figure, footer,
@@ -627,4 +658,88 @@ table.index {
     margin-left: -3em;
     margin-right: -3em;
     margin-top: 1.5em;
+}
+
+/* ─── Story count badge (header) ─────────────────────────────────────────── */
+.story-count-display {
+    font-size: 0.85em;
+    color: var(--disclaimer-text);
+    margin: 4px 0 0;
+    font-style: italic;
+    min-height: 1.2em; /* reserve space while loading */
+}
+
+/* ─── Result count summary line ──────────────────────────────────────────── */
+.result-count {
+    font-size: 0.9em;
+    color: var(--disclaimer-text);
+    margin: 0 0 12px;
+    text-align: left;
+    width: 100%;
+}
+
+/* ─── Status messages (loading / error) ──────────────────────────────────── */
+.status-message {
+    color: var(--disclaimer-text);
+    font-style: italic;
+}
+
+/* ─── Filter actions row (Clear All Filters button) ─────────────────────── */
+.filter-actions {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 20px;
+}
+
+#clear-filters-button {
+    background: none;
+    border: 1px solid var(--input-border);
+    color: var(--disclaimer-text);
+    padding: 6px 14px;
+    border-radius: 5px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background-color 0.2s;
+}
+
+#clear-filters-button:hover {
+    border-color: var(--button-bg);
+    color: var(--button-bg);
+    background-color: var(--bg-color);
+}
+
+/* ─── Pagination controls ────────────────────────────────────────────────── */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 16px 0 4px;
+    width: 100%;
+}
+
+.pagination button {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    padding: 8px 18px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+    background-color: var(--button-hover-bg);
+}
+
+.pagination button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.page-info {
+    font-size: 0.9em;
+    color: var(--disclaimer-text);
+    white-space: nowrap;
 }
