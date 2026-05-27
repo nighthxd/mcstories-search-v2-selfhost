@@ -2,6 +2,7 @@
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let currentPage = 1;
+let currentUser = null;   // null = not logged in; object = { username }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -29,9 +30,53 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show total stories indexed in the header
     fetchStoryCount();
 
-    // If the page was loaded with a URL query string, restore and auto-run the search
-    restoreFromUrl();
+    // Load auth state then restore URL (so read checkboxes render correctly)
+    initAuth().then(() => restoreFromUrl());
 });
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+async function initAuth() {
+    try {
+        const res  = await fetch('/api/auth/me');
+        const data = await res.json();
+        currentUser = data.loggedIn ? { username: data.username } : null;
+    } catch {
+        currentUser = null;
+    }
+    renderAuthStatus();
+}
+
+function renderAuthStatus() {
+    const bar = document.getElementById('auth-status');
+    if (!bar) return;
+
+    if (currentUser) {
+        bar.innerHTML =
+            `<span class="auth-greeting">Hi, <strong>${escapeHtml(currentUser.username)}</strong></span>` +
+            `<button class="auth-logout-btn" onclick="logout()">Log out</button>`;
+    } else {
+        bar.innerHTML =
+            `<a href="/login"    class="auth-link-btn">Log in</a>` +
+            `<a href="/register" class="auth-link-btn">Register</a>`;
+    }
+}
+
+async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    currentUser = null;
+    renderAuthStatus();
+    // Re-render results so checkboxes switch to disabled state
+    performSearch(currentPage);
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
 
 // ─── STORY COUNT ──────────────────────────────────────────────────────────────
 function fetchStoryCount() {
@@ -41,7 +86,7 @@ function fetchStoryCount() {
             const el = document.getElementById('story-count');
             if (el) el.textContent = `${Number(data.count).toLocaleString()} stories indexed`;
         })
-        .catch(() => {}); // Silently fail — non-critical
+        .catch(() => {});
 }
 
 // ─── FILTER PERSISTENCE ───────────────────────────────────────────────────────
@@ -87,12 +132,11 @@ function pushUrlState(page) {
 }
 
 function restoreFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-
-    const query    = params.get('query');
-    const cats     = params.get('categories');
-    const excCats  = params.get('excludedCategories');
-    const page     = parseInt(params.get('page')) || 1;
+    const params  = new URLSearchParams(window.location.search);
+    const query   = params.get('query');
+    const cats    = params.get('categories');
+    const excCats = params.get('excludedCategories');
+    const page    = parseInt(params.get('page')) || 1;
 
     if (query) document.getElementById('search-input').value = query;
 
@@ -109,7 +153,6 @@ function restoreFromUrl() {
         });
     }
 
-    // Auto-run if URL contained search parameters
     if (query || cats || excCats) {
         currentPage = page;
         performSearch(currentPage);
@@ -128,12 +171,10 @@ async function performSearch(page) {
     const resultsContainer = document.getElementById('results-container');
     resultsContainer.innerHTML = '<p class="status-message">Loading results…</p>';
 
-    // Build API query params (includes limit)
     const uiParams = buildSearchParams(page);
     uiParams.set('limit', '50');
     if (!uiParams.has('page')) uiParams.set('page', page);
 
-    // Update the browser URL bar
     pushUrlState(page);
 
     try {
@@ -161,39 +202,70 @@ async function performSearch(page) {
         const ul = document.createElement('ul');
         stories.forEach(story => {
             const li = document.createElement('li');
+            if (story.is_read) li.classList.add('story-read');
 
+            // ── Read checkbox (top-right corner) ──
+            const checkWrapper = document.createElement('div');
+            checkWrapper.className = 'read-checkbox-wrapper';
+
+            const checkbox = document.createElement('input');
+            checkbox.type    = 'checkbox';
+            checkbox.checked = story.is_read;
+            checkbox.className = 'read-checkbox';
+            checkbox.setAttribute('aria-label', 'Mark as read');
+
+            if (!currentUser) {
+                checkbox.disabled = true;
+                checkWrapper.title = 'Log in to save your reading progress';
+            } else {
+                checkbox.addEventListener('change', () => toggleRead(checkbox, li, story.id));
+            }
+
+            checkWrapper.appendChild(checkbox);
+            li.appendChild(checkWrapper);
+
+            // ── Story header (title + tags) ──
             const storyHeader = document.createElement('div');
             storyHeader.className = 'story-header';
 
             const a = document.createElement('a');
-            a.href = story.url;
-            a.textContent = story.title;
+            a.href   = story.url;
             a.target = '_blank';
-            a.rel = 'noopener noreferrer';
+            a.rel    = 'noopener noreferrer';
+            a.textContent = story.title;
             storyHeader.appendChild(a);
+
+            // NEW badge
+            if (story.is_new) {
+                const badge = document.createElement('span');
+                badge.className   = 'new-badge';
+                badge.textContent = 'NEW';
+                storyHeader.appendChild(badge);
+            }
 
             if (story.categories && story.categories.length > 0) {
                 const categoriesSpan = document.createElement('span');
-                categoriesSpan.className = 'story-categories';
+                categoriesSpan.className   = 'story-categories';
                 categoriesSpan.textContent = ` (${story.categories.join(', ').toLowerCase()})`;
                 storyHeader.appendChild(categoriesSpan);
             }
             li.appendChild(storyHeader);
 
+            // ── Synopsis toggle ──
             if (story.synopsis && story.synopsis.trim().length > 0) {
                 const synopsisDiv = document.createElement('div');
-                synopsisDiv.className = 'story-synopsis';
-                synopsisDiv.textContent = story.synopsis;
+                synopsisDiv.className    = 'story-synopsis';
+                synopsisDiv.textContent  = story.synopsis;
                 synopsisDiv.style.display = 'none';
                 li.appendChild(synopsisDiv);
 
                 const toggleButton = document.createElement('button');
-                toggleButton.className = 'toggle-synopsis';
+                toggleButton.className   = 'toggle-synopsis';
                 toggleButton.textContent = 'Show Synopsis';
                 toggleButton.onclick = () => {
                     const isHidden = synopsisDiv.style.display === 'none';
                     synopsisDiv.style.display = isHidden ? 'block' : 'none';
-                    toggleButton.textContent = isHidden ? 'Hide Synopsis' : 'Show Synopsis';
+                    toggleButton.textContent  = isHidden ? 'Hide Synopsis' : 'Show Synopsis';
                 };
                 li.appendChild(toggleButton);
             }
@@ -209,19 +281,19 @@ async function performSearch(page) {
 
             const prevBtn = document.createElement('button');
             prevBtn.textContent = '← Previous';
-            prevBtn.disabled = currentPage <= 1;
-            prevBtn.onclick = () => { performSearch(currentPage - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+            prevBtn.disabled    = currentPage <= 1;
+            prevBtn.onclick     = () => { performSearch(currentPage - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); };
             pagination.appendChild(prevBtn);
 
             const pageInfo = document.createElement('span');
-            pageInfo.className = 'page-info';
+            pageInfo.className   = 'page-info';
             pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
             pagination.appendChild(pageInfo);
 
             const nextBtn = document.createElement('button');
             nextBtn.textContent = 'Next →';
-            nextBtn.disabled = currentPage >= totalPages;
-            nextBtn.onclick = () => { performSearch(currentPage + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+            nextBtn.disabled    = currentPage >= totalPages;
+            nextBtn.onclick     = () => { performSearch(currentPage + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); };
             pagination.appendChild(nextBtn);
 
             resultsContainer.appendChild(pagination);
@@ -230,5 +302,25 @@ async function performSearch(page) {
     } catch (error) {
         console.error('Error fetching stories:', error);
         resultsContainer.innerHTML = '<p class="status-message">Error loading stories. Please try again later.</p>';
+    }
+}
+
+// ─── READ TOGGLE ──────────────────────────────────────────────────────────────
+async function toggleRead(checkbox, li, storyId) {
+    const nowRead = checkbox.checked;
+
+    // Optimistic UI update
+    li.classList.toggle('story-read', nowRead);
+
+    try {
+        const res = await fetch(`/api/reads/${storyId}`, {
+            method: nowRead ? 'POST' : 'DELETE'
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+        console.error('Read toggle failed:', err);
+        // Revert on failure
+        checkbox.checked = !nowRead;
+        li.classList.toggle('story-read', !nowRead);
     }
 }

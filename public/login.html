@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — MCStories Search</title>
+    <link rel="stylesheet" type="text/css" href="style-sheet.css">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+    <article id="mcstories">
+        <h3 class="title"><a href="/" class="home-link">MCStories Search</a></h3>
+        <h3 class="byline">By -=pizzaman=-</h3>
+        <button id="theme-toggle" aria-label="Toggle Dark Mode"></button>
+    </article>
+
+    <div class="body-container auth-container">
+        <h2 class="auth-heading">Sign In</h2>
+
+        <form id="auth-form" novalidate>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" autocomplete="username"
+                       placeholder="Your username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" autocomplete="current-password"
+                       placeholder="Your password" required>
+            </div>
+
+            <div class="cf-turnstile-wrapper">
+                <div class="cf-turnstile"
+                     data-sitekey="0x4AAAAAADXRP-s7Mq_tB7x2"
+                     data-theme="auto"></div>
+            </div>
+
+            <p id="auth-error" class="auth-error" role="alert" aria-live="polite"></p>
+
+            <button type="submit" class="auth-submit-btn">Sign In</button>
+        </form>
+
+        <p class="auth-switch">
+            Don't have an account? <a href="/register">Register here</a>
+        </p>
+    </div>
+
+    <script src="auth.js"></script>
+</body>
+</html>

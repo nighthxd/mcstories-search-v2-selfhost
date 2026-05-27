@@ -743,3 +743,247 @@ table.index {
     color: var(--disclaimer-text);
     white-space: nowrap;
 }
+
+/* ─── Auth status bar (top-left of header article) ──────────────────────── */
+.auth-status-bar {
+    position: absolute;
+    top: 18px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85em;
+    z-index: 1000;
+}
+
+.auth-greeting {
+    color: var(--disclaimer-text);
+}
+
+.auth-logout-btn,
+.auth-link-btn {
+    background: none;
+    border: 1px solid var(--input-border);
+    color: var(--disclaimer-text);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: inherit;
+    transition: border-color 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+
+.auth-logout-btn:hover,
+.auth-link-btn:hover {
+    border-color: var(--button-bg);
+    color: var(--button-bg);
+    background: none;
+}
+
+/* ─── NEW badge ──────────────────────────────────────────────────────────── */
+.new-badge {
+    display: inline-block;
+    background-color: #22c55e;
+    color: #fff;
+    font-size: 0.65em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 7px;
+    vertical-align: middle;
+    line-height: 1.4;
+}
+
+/* ─── Read checkbox (top-right of each story card) ───────────────────────── */
+#results-container li {
+    position: relative;
+}
+
+.read-checkbox-wrapper {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.read-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--button-bg);
+}
+
+.read-checkbox:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+/* ─── Read story — dimmed, un-dims on hover ──────────────────────────────── */
+.story-read {
+    opacity: 0.55;
+    transition: opacity 0.2s;
+}
+
+.story-read:hover {
+    opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Auth pages (login.html / register.html)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.home-link {
+    color: var(--heading-color);
+    text-decoration: none;
+}
+
+.home-link:hover {
+    text-decoration: underline;
+    background: none;
+}
+
+.auth-container {
+    max-width: 420px;
+    padding: 32px 36px;
+}
+
+.auth-heading {
+    text-align: center;
+    color: var(--heading-color);
+    margin: 0 0 24px;
+    font-size: 1.5em;
+    font-weight: 700;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+.form-group label {
+    font-size: 0.9em;
+    color: var(--text-color);
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.form-group input {
+    padding: 10px 12px;
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    font-size: 1em;
+    font-family: inherit;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: border-color 0.2s, background-color 0.3s, color 0.3s;
+}
+
+.form-group input::placeholder {
+    color: var(--placeholder-color);
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--input-focus-border);
+}
+
+/* Turnstile widget — centred */
+.cf-turnstile-wrapper {
+    display: flex;
+    justify-content: center;
+    margin: 18px 0 6px;
+}
+
+.auth-error {
+    color: #dc2626;
+    font-size: 0.88em;
+    min-height: 1.2em;
+    margin: 4px 0 12px;
+    text-align: center;
+}
+
+.auth-submit-btn {
+    width: 100%;
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    padding: 11px;
+    border-radius: 5px;
+    font-size: 1em;
+    font-family: inherit;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    margin-top: 4px;
+}
+
+.auth-submit-btn:hover:not(:disabled) {
+    background-color: var(--button-hover-bg);
+}
+
+.auth-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.auth-switch {
+    text-align: center;
+    font-size: 0.9em;
+    color: var(--disclaimer-text);
+    margin-top: 20px;
+}
+
+.auth-switch a {
+    color: var(--button-bg);
+    text-decoration: none;
+}
+
+.auth-switch a:hover {
+    text-decoration: underline;
+    background: none;
+    color: var(--button-hover-bg);
+}
+
+/* ─── Password strength indicator ───────────────────────────────────────── */
+.password-strength {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 7px;
+    font-size: 0.8em;
+}
+
+.req-met,
+.req-unmet {
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.req-met {
+    background-color: rgba(34, 197, 94, 0.18);
+    color: #15803d;
+}
+
+body.dark-mode .req-met {
+    background-color: rgba(34, 197, 94, 0.22);
+    color: #4ade80;
+}
+
+.req-unmet {
+    background-color: rgba(220, 38, 38, 0.12);
+    color: #b91c1c;
+}
+
+body.dark-mode .req-unmet {
+    background-color: rgba(220, 38, 38, 0.2);
+    color: #f87171;
+}
