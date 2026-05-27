@@ -142,6 +142,31 @@ const dbReady = (async () => {
     await db.exec('PRAGMA synchronous = NORMAL;');
     await db.exec('PRAGMA foreign_keys = ON;');
 
+    // ── scrape_state table ────────────────────────────────────────────────────
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS scrape_state (
+            id                          INTEGER PRIMARY KEY,
+            last_scraped_category_index INTEGER
+        );
+    `);
+    // Seed the initial row if it doesn't exist (scraper needs it)
+    await db.run(`INSERT OR IGNORE INTO scrape_state (id, last_scraped_category_index) VALUES (1, -1);`);
+
+    // ── stories table (created here for fresh DBs; columns may have been
+    //    added incrementally via ALTER TABLE in later migrations below) ──────────
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS stories (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            title           TEXT    NOT NULL,
+            url             TEXT    UNIQUE NOT NULL,
+            categories      TEXT,
+            last_scraped_at TEXT    DEFAULT (datetime('now')),
+            synopsis        TEXT,
+            marked_new_at   TEXT,
+            last_seen_at    TEXT
+        );
+    `);
+
     // Index on categories for faster tag filtering
     await db.exec('CREATE INDEX IF NOT EXISTS idx_categories ON stories(categories);');
 
