@@ -90,6 +90,13 @@ describe('GET /api/auth/me', () => {
         expect(typeof res.body.username).toBe('string');
         expect(res.body.isAdmin).toBe(false);
     });
+
+    test('returns theme field defaulting to "light" for new users', async () => {
+        const agent = await registeredAgent(uid('meTheme'));
+        const res   = await agent.get('/api/auth/me');
+        expect(res.body.loggedIn).toBe(true);
+        expect(res.body.theme).toBe('light');
+    });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -249,6 +256,71 @@ describe('POST /api/auth/logout', () => {
         await agent.post('/api/auth/logout');
         const me = await agent.get('/api/auth/me');
         expect(me.body.loggedIn).toBe(false);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Preferences
+// ═════════════════════════════════════════════════════════════════════════════
+describe('POST /api/preferences', () => {
+    test('returns 401 for unauthenticated requests', async () => {
+        const res = await request(app)
+            .post('/api/preferences')
+            .send({ theme: 'dark' });
+        expect(res.status).toBe(401);
+    });
+
+    test('rejects an invalid theme value', async () => {
+        const agent = await registeredAgent(uid('prefBad'));
+        const res   = await agent.post('/api/preferences').send({ theme: 'blue' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBeTruthy();
+    });
+
+    test('rejects missing theme field', async () => {
+        const agent = await registeredAgent(uid('prefMiss'));
+        const res   = await agent.post('/api/preferences').send({});
+        expect(res.status).toBe(400);
+    });
+
+    test('saves theme "dark" and reflects in /api/auth/me', async () => {
+        const agent = await registeredAgent(uid('prefDark'));
+
+        const save = await agent.post('/api/preferences').send({ theme: 'dark' });
+        expect(save.status).toBe(200);
+        expect(save.body.success).toBe(true);
+
+        const me = await agent.get('/api/auth/me');
+        expect(me.body.theme).toBe('dark');
+    });
+
+    test('saves theme "light" and reflects in /api/auth/me', async () => {
+        const agent = await registeredAgent(uid('prefLight'));
+
+        // Set dark first, then switch back to light
+        await agent.post('/api/preferences').send({ theme: 'dark' });
+        const save = await agent.post('/api/preferences').send({ theme: 'light' });
+        expect(save.status).toBe(200);
+
+        const me = await agent.get('/api/auth/me');
+        expect(me.body.theme).toBe('light');
+    });
+
+    test('persisted theme survives logout and re-login (cross-session sync)', async () => {
+        const username = uid('prefSync');
+        const password = 'SyncPass1!Secure';
+
+        // Register and set dark theme
+        const agent1 = request.agent(app);
+        await agent1.post('/api/auth/register').send({ username, password, turnstileToken: 'bypass' });
+        await agent1.post('/api/preferences').send({ theme: 'dark' });
+        await agent1.post('/api/auth/logout');
+
+        // Fresh session — theme should still be dark
+        const agent2 = request.agent(app);
+        await agent2.post('/api/auth/login').send({ username, password, turnstileToken: 'bypass' });
+        const me = await agent2.get('/api/auth/me');
+        expect(me.body.theme).toBe('dark');
     });
 });
 
