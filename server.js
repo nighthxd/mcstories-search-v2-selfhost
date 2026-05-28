@@ -480,6 +480,11 @@ app.post('/api/admin/users/:id/reset-password', requireAdmin, async (req, res) =
         return res.status(400).json({ error: 'Password must be at least 12 characters and include an uppercase letter, a number, and a special character.' });
     }
     try {
+        const target = await db.get('SELECT id, is_admin FROM users WHERE id = ?', [targetId]);
+        if (!target) return res.status(404).json({ error: 'User not found.' });
+        if (target.is_admin && target.id !== req.session.userId) {
+            return res.status(403).json({ error: 'Cannot reset another admin\'s password.' });
+        }
         const hash = await bcrypt.hash(newPassword, 12);
         await db.run('UPDATE users SET password = ? WHERE id = ?', [hash, targetId]);
         res.json({ success: true });

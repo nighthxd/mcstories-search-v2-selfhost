@@ -233,7 +233,7 @@ async function performSearch(page) {
             storyHeader.className = 'story-header';
 
             const a = document.createElement('a');
-            a.href   = story.url;
+            if (/^https?:\/\//.test(story.url)) a.href = story.url;
             a.target = '_blank';
             a.rel    = 'noopener noreferrer';
             a.textContent = story.title;
