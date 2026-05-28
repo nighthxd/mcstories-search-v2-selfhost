@@ -118,6 +118,16 @@ describe('POST /api/auth/register', () => {
         expect(res.status).toBe(400);
     });
 
+    test('rejects reserved username "admin" (any case)', async () => {
+        for (const name of ['admin', 'Admin', 'ADMIN', 'aDmIn']) {
+            const res = await request(app)
+                .post('/api/auth/register')
+                .send({ username: name, password: 'TestPass1!Secure', turnstileToken: 'bypass' });
+            expect(res.status).toBe(400);
+            expect(res.body.error).toMatch(/reserved/);
+        }
+    });
+
     test('rejects a weak password (no uppercase)', async () => {
         const res = await request(app)
             .post('/api/auth/register')

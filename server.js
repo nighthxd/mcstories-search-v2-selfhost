@@ -249,12 +249,18 @@ const dbReady = (async () => {
         console.log('[DB] Added is_suspended column to users table.');
     }
 
-    // Grant admin flag to the 'admin' account (idempotent)
-    const adminGrant = await db.run(
-        "UPDATE users SET is_admin = 1 WHERE username = 'admin' COLLATE NOCASE"
-    );
-    if (adminGrant.changes > 0) {
-        console.log('[DB] Granted admin privileges to "admin" account.');
+    // Grant admin flag to the 'admin' account — only when NO admin exists yet.
+    // Running this unconditionally was a security risk: if the 'admin' account
+    // was ever deleted and an attacker registered a new account named 'admin',
+    // the next server restart would silently elevate it to admin.
+    const existingAdmin = await db.get('SELECT id FROM users WHERE is_admin = 1 LIMIT 1');
+    if (!existingAdmin) {
+        const adminGrant = await db.run(
+            "UPDATE users SET is_admin = 1 WHERE username = 'admin' COLLATE NOCASE"
+        );
+        if (adminGrant.changes > 0) {
+            console.log('[DB] Granted admin privileges to "admin" account (first-run bootstrap).');
+        }
     }
 
     // ── user_reads table ──
@@ -328,6 +334,11 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         }
         if (!validateUsername(username)) {
             return res.status(400).json({ error: 'Username must be 3–20 characters and contain only letters, numbers, and underscores.' });
+        }
+        // 'admin' is a reserved username — it is the bootstrap admin account and
+        // must never be claimable via self-registration.
+        if (username.toLowerCase() === 'admin') {
+            return res.status(400).json({ error: 'That username is reserved.' });
         }
         if (!validatePassword(password)) {
             return res.status(400).json({ error: 'Password must be at least 12 characters and include an uppercase letter, a number, and a special character.' });
