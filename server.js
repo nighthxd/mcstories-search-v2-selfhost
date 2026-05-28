@@ -248,6 +248,10 @@ const dbReady = (async () => {
         await db.exec("ALTER TABLE users ADD COLUMN is_suspended INTEGER NOT NULL DEFAULT 0;");
         console.log('[DB] Added is_suspended column to users table.');
     }
+    if (!userColNames.includes('theme')) {
+        await db.exec("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'light';");
+        console.log('[DB] Added theme column to users table.');
+    }
 
     // Grant admin flag to the 'admin' account — only when NO admin exists yet.
     // Running this unconditionally was a security risk: if the 'admin' account
@@ -308,16 +312,32 @@ app.get('/api/auth/me', async (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     try {
         const user = await db.get(
-            'SELECT username, is_admin, is_suspended FROM users WHERE id = ?',
+            'SELECT username, is_admin, is_suspended, theme FROM users WHERE id = ?',
             req.session.userId
         );
         if (!user || user.is_suspended) {
             req.session.destroy();
             return res.json({ loggedIn: false });
         }
-        res.json({ loggedIn: true, username: user.username, isAdmin: user.is_admin === 1 });
+        res.json({ loggedIn: true, username: user.username, isAdmin: user.is_admin === 1, theme: user.theme || 'light' });
     } catch {
         res.json({ loggedIn: false });
+    }
+});
+
+// POST /api/preferences — save per-user preferences (theme etc.)
+app.post('/api/preferences', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in.' });
+    const { theme } = req.body;
+    if (theme !== 'light' && theme !== 'dark') {
+        return res.status(400).json({ error: 'Invalid theme value.' });
+    }
+    try {
+        await db.run('UPDATE users SET theme = ? WHERE id = ?', [theme, req.session.userId]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Save preferences error:', error);
+        res.status(500).json({ error: 'Failed to save preferences.' });
     }
 });
 

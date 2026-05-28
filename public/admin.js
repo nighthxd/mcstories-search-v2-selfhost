@@ -6,16 +6,16 @@ let resetTargetId  = null;   // user ID currently open in the reset-password mod
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
 
-    // Theme toggle
+    // Apply localStorage theme immediately (avoids flash before /api/auth/me resolves)
+    applyTheme(localStorage.getItem('theme') || 'light');
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-            localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+            const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+            saveTheme(newTheme);
         });
-        if (localStorage.getItem('theme') === 'dark') {
-            document.body.classList.add('dark-mode');
-        }
     }
 
     // Verify admin session; redirect if not admin (belt-and-suspenders — server already checks)
@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.location.href = '/';
                 return;
             }
+            // Sync theme from server (authoritative for logged-in users)
+            applyTheme(data.theme);
+            localStorage.setItem('theme', data.theme);
             // We need the user's own ID to disable self-action buttons.
             // Store it by loading users and identifying the current username.
             loadUsers(data.username);
@@ -34,6 +37,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+    document.body.classList.toggle('dark-mode', theme === 'dark');
+}
+
+function saveTheme(theme) {
+    fetch('/api/preferences', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ theme })
+    }).catch(() => {}); // fire-and-forget
+}
+
 function escapeHtml(str) {
     return String(str)
         .replace(/&/g,  '&amp;')

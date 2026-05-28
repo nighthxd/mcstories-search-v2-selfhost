@@ -7,16 +7,16 @@ let currentUser = null;   // null = not logged in; object = { username }
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
 
-    // Theme toggle
+    // Theme toggle — apply localStorage immediately (avoids flash), then sync from server after auth
+    applyTheme(localStorage.getItem('theme') || 'light');
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-            localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+            const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+            if (currentUser) saveTheme(newTheme);
         });
-        if (localStorage.getItem('theme') === 'dark') {
-            document.body.classList.add('dark-mode');
-        }
     }
 
     // Restore saved filter checkboxes
@@ -39,7 +39,14 @@ async function initAuth() {
     try {
         const res  = await fetch('/api/auth/me');
         const data = await res.json();
-        currentUser = data.loggedIn ? { username: data.username, isAdmin: data.isAdmin } : null;
+        if (data.loggedIn) {
+            currentUser = { username: data.username, isAdmin: data.isAdmin };
+            // Server theme wins for logged-in users; keep localStorage in sync
+            applyTheme(data.theme);
+            localStorage.setItem('theme', data.theme);
+        } else {
+            currentUser = null;
+        }
     } catch {
         currentUser = null;
     }
@@ -74,6 +81,18 @@ async function logout() {
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+    document.body.classList.toggle('dark-mode', theme === 'dark');
+}
+
+function saveTheme(theme) {
+    fetch('/api/preferences', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ theme })
+    }).catch(() => {}); // fire-and-forget; failure is non-critical
+}
+
 function escapeHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;')
