@@ -141,5 +141,22 @@ vite.config.ts.timestamp-*
 # Ignore the entire database directory
 /database/
 
+# SQLite files (WAL mode journal files, or any stray DB outside /database/)
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
 # Ignore scripts
 *.sh
+
+# Claude Code local settings (contains machine-specific SSH permissions)
+.claude/settings.local.json
+
+# OS-generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
