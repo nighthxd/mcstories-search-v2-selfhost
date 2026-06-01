@@ -561,7 +561,9 @@ app.get('/api/count', async (req, res) => {
 
 // ─── API: RANDOM ──────────────────────────────────────────────────────────────
 
-// GET /api/random — one random story, respects include/exclude tag filters
+// GET /api/random — one random story, respects include/exclude tag filters.
+// If the include+exclude combination finds nothing, falls back to exclude-only
+// and sets fallback:true so the client can show an explanatory message.
 app.get('/api/random', async (req, res) => {
     try {
         const { categories, excludedCategories } = req.query;
@@ -573,36 +575,42 @@ app.get('/api/random', async (req, res) => {
             ? excludedCategories.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
             : [];
 
-        const userId     = req.session.userId || -1;
-        const tagClauses = [];
-        includeTags.forEach(tag => tagClauses.push({ sql: 's.categories LIKE ?',     val: `%${tag}%` }));
-        excludeTags.forEach(tag => tagClauses.push({ sql: 's.categories NOT LIKE ?', val: `%${tag}%` }));
+        const userId = req.session.userId || -1;
 
-        const whereClause = tagClauses.length > 0
-            ? 'WHERE ' + tagClauses.map(c => c.sql).join(' AND ')
-            : '';
+        const randomStory = async (incl, excl) => {
+            const clauses = [];
+            incl.forEach(tag => clauses.push({ sql: 's.categories LIKE ?',     val: `%${tag}%` }));
+            excl.forEach(tag => clauses.push({ sql: 's.categories NOT LIKE ?', val: `%${tag}%` }));
+            const where = clauses.length > 0 ? 'WHERE ' + clauses.map(c => c.sql).join(' AND ') : '';
+            return db.get(`
+                SELECT s.id, s.url, s.title, s.synopsis, s.categories,
+                       CASE WHEN ur.story_id IS NOT NULL THEN 1 ELSE 0 END AS is_read,
+                       CASE WHEN s.marked_new_at > datetime('now', '-60 days') THEN 1 ELSE 0 END AS is_new
+                FROM stories s
+                LEFT JOIN user_reads ur ON s.id = ur.story_id AND ur.user_id = ?
+                ${where}
+                ORDER BY RANDOM() LIMIT 1
+            `, [userId, ...clauses.map(c => c.val)]);
+        };
 
-        const story = await db.get(`
-            SELECT s.id, s.url, s.title, s.synopsis, s.categories,
-                   CASE WHEN ur.story_id IS NOT NULL THEN 1 ELSE 0 END AS is_read,
-                   CASE WHEN s.marked_new_at > datetime('now', '-60 days') THEN 1 ELSE 0 END AS is_new
-            FROM stories s
-            LEFT JOIN user_reads ur ON s.id = ur.story_id AND ur.user_id = ?
-            ${whereClause}
-            ORDER BY RANDOM()
-            LIMIT 1
-        `, [userId, ...tagClauses.map(c => c.val)]);
-
-        if (!story) return res.json({ story: null });
-
-        res.json({
-            story: {
-                ...story,
-                categories: story.categories ? story.categories.split(',') : [],
-                is_read:    story.is_read === 1,
-                is_new:     story.is_new  === 1
-            }
+        const formatStory = s => ({
+            ...s,
+            categories: s.categories ? s.categories.split(',') : [],
+            is_read:    s.is_read === 1,
+            is_new:     s.is_new  === 1
         });
+
+        // First pass: full filter (include + exclude)
+        let story = await randomStory(includeTags, excludeTags);
+        if (story) return res.json({ story: formatStory(story), fallback: false });
+
+        // No match — if there were include tags, retry with exclude-only as fallback
+        if (includeTags.length > 0) {
+            story = await randomStory([], excludeTags);
+            if (story) return res.json({ story: formatStory(story), fallback: true });
+        }
+
+        res.json({ story: null, fallback: false });
     } catch (error) {
         console.error('Random story error:', error);
         res.status(500).json({ error: 'Failed to fetch random story.' });

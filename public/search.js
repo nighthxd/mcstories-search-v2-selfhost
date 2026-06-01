@@ -346,7 +346,7 @@ async function handleRandomClick() {
     try {
         const res = await fetch(`/api/random?${params.toString()}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const { story } = await res.json();
+        const { story, fallback } = await res.json();
 
         resultsContainer.innerHTML = '';
 
@@ -359,8 +359,18 @@ async function handleRandomClick() {
             return;
         }
 
-        const hasFilters = included.length > 0 || excluded.length > 0;
-        headerEl.textContent = hasFilters ? '🎲 Random story (filtered)' : '🎲 Random story';
+        if (fallback) {
+            // Include tags found nothing — show a note and the exclude-only fallback
+            const noteEl = document.createElement('p');
+            noteEl.className   = 'result-count';
+            noteEl.textContent = 'No stories found for your included tags.';
+            resultsContainer.appendChild(noteEl);
+
+            headerEl.textContent = '🎲 Here\'s a random story respecting your exclusions:';
+        } else {
+            const hasFilters = included.length > 0 || excluded.length > 0;
+            headerEl.textContent = hasFilters ? '🎲 Random story (filtered)' : '🎲 Random story';
+        }
         resultsContainer.appendChild(headerEl);
 
         const ul = document.createElement('ul');

@@ -413,10 +413,21 @@ describe('GET /api/random', () => {
         }
     });
 
-    test('returns null story when no match (impossible category combo)', async () => {
-        const res = await request(app).get('/api/random?categories=mc&excludedCategories=mc');
+    test('falls back to exclude-only when include tags find no match', async () => {
+        // 'bd' not present in the seeded story; fallback (no include, no exclude) returns the seeded story
+        const res = await request(app).get('/api/random?categories=bd');
+        expect(res.status).toBe(200);
+        expect(res.body.fallback).toBe(true);
+        expect(res.body.story).not.toBeNull();
+        expect(res.body.story.categories).not.toContain('bd');
+    });
+
+    test('returns null when exclude-only fallback also finds nothing', async () => {
+        // Excluding mc removes the only seeded story, so both passes return nothing
+        const res = await request(app).get('/api/random?categories=bd&excludedCategories=mc');
         expect(res.status).toBe(200);
         expect(res.body.story).toBeNull();
+        expect(res.body.fallback).toBe(false);
     });
 
     test('reflects is_read:true for logged-in user who read the story', async () => {
