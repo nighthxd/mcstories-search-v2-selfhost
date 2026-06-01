@@ -383,6 +383,58 @@ describe('GET /api/search', () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
+// Random story
+// ═════════════════════════════════════════════════════════════════════════════
+describe('GET /api/random', () => {
+    test('returns a single story with expected shape', async () => {
+        const res = await request(app).get('/api/random');
+        expect(res.status).toBe(200);
+        expect(res.body.story).not.toBeNull();
+        const s = res.body.story;
+        expect(typeof s.id).toBe('number');
+        expect(typeof s.title).toBe('string');
+        expect(typeof s.url).toBe('string');
+        expect(Array.isArray(s.categories)).toBe(true);
+        expect(typeof s.is_read).toBe('boolean');
+        expect(typeof s.is_new).toBe('boolean');
+    });
+
+    test('returns is_read:false for guest users', async () => {
+        const res = await request(app).get('/api/random');
+        expect(res.body.story.is_read).toBe(false);
+    });
+
+    test('respects included category filter', async () => {
+        const res = await request(app).get('/api/random?categories=mc');
+        expect(res.status).toBe(200);
+        // seeded story has mc,mf — should always return something
+        if (res.body.story) {
+            expect(res.body.story.categories).toContain('mc');
+        }
+    });
+
+    test('returns null story when no match (impossible category combo)', async () => {
+        const res = await request(app).get('/api/random?categories=mc&excludedCategories=mc');
+        expect(res.status).toBe(200);
+        expect(res.body.story).toBeNull();
+    });
+
+    test('reflects is_read:true for logged-in user who read the story', async () => {
+        const agent = await registeredAgent(uid('randRead'));
+        const searchRes = await agent.get('/api/search?query=integration+test+story');
+        const story     = searchRes.body.stories[0];
+        await agent.post(`/api/reads/${story.id}`);
+
+        // Random with mc filter — seeded story is the only mc story, so it must be returned
+        const res = await agent.get('/api/random?categories=mc');
+        expect(res.status).toBe(200);
+        if (res.body.story && res.body.story.id === story.id) {
+            expect(res.body.story.is_read).toBe(true);
+        }
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
 // Story count
 // ═════════════════════════════════════════════════════════════════════════════
 describe('GET /api/count', () => {

@@ -226,6 +226,23 @@ body.dark-mode #theme-toggle::before {
     background-color: var(--button-hover-bg);
 }
 
+#random-button {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    padding: 10px 16px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s, opacity 0.3s;
+    opacity: 0.82;
+}
+
+#random-button:hover {
+    background-color: var(--button-hover-bg);
+    opacity: 1;
+}
+
 /* Category Filter Section */
 h3 {
     color: var(--heading-color);

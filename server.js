@@ -559,6 +559,56 @@ app.get('/api/count', async (req, res) => {
     }
 });
 
+// ─── API: RANDOM ──────────────────────────────────────────────────────────────
+
+// GET /api/random — one random story, respects include/exclude tag filters
+app.get('/api/random', async (req, res) => {
+    try {
+        const { categories, excludedCategories } = req.query;
+
+        const includeTags = categories
+            ? categories.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+            : [];
+        const excludeTags = excludedCategories
+            ? excludedCategories.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+            : [];
+
+        const userId     = req.session.userId || -1;
+        const tagClauses = [];
+        includeTags.forEach(tag => tagClauses.push({ sql: 's.categories LIKE ?',     val: `%${tag}%` }));
+        excludeTags.forEach(tag => tagClauses.push({ sql: 's.categories NOT LIKE ?', val: `%${tag}%` }));
+
+        const whereClause = tagClauses.length > 0
+            ? 'WHERE ' + tagClauses.map(c => c.sql).join(' AND ')
+            : '';
+
+        const story = await db.get(`
+            SELECT s.id, s.url, s.title, s.synopsis, s.categories,
+                   CASE WHEN ur.story_id IS NOT NULL THEN 1 ELSE 0 END AS is_read,
+                   CASE WHEN s.marked_new_at > datetime('now', '-60 days') THEN 1 ELSE 0 END AS is_new
+            FROM stories s
+            LEFT JOIN user_reads ur ON s.id = ur.story_id AND ur.user_id = ?
+            ${whereClause}
+            ORDER BY RANDOM()
+            LIMIT 1
+        `, [userId, ...tagClauses.map(c => c.val)]);
+
+        if (!story) return res.json({ story: null });
+
+        res.json({
+            story: {
+                ...story,
+                categories: story.categories ? story.categories.split(',') : [],
+                is_read:    story.is_read === 1,
+                is_new:     story.is_new  === 1
+            }
+        });
+    } catch (error) {
+        console.error('Random story error:', error);
+        res.status(500).json({ error: 'Failed to fetch random story.' });
+    }
+});
+
 // ─── API: SEARCH ──────────────────────────────────────────────────────────────
 app.get('/api/search', async (req, res) => {
     try {

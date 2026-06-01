@@ -223,78 +223,7 @@ async function performSearch(page) {
 
         // ── Story list ──
         const ul = document.createElement('ul');
-        stories.forEach(story => {
-            const li = document.createElement('li');
-            if (story.is_read) li.classList.add('story-read');
-
-            // ── Read checkbox (top-right corner) ──
-            const checkWrapper = document.createElement('div');
-            checkWrapper.className = 'read-checkbox-wrapper';
-
-            const checkbox = document.createElement('input');
-            checkbox.type    = 'checkbox';
-            checkbox.checked = story.is_read;
-            checkbox.className = 'read-checkbox';
-            checkbox.setAttribute('aria-label', 'Mark as read');
-
-            if (!currentUser) {
-                checkbox.disabled = true;
-                checkWrapper.title = 'Log in to save your reading progress';
-            } else {
-                checkbox.addEventListener('change', () => toggleRead(checkbox, li, story.id));
-            }
-
-            checkWrapper.appendChild(checkbox);
-            li.appendChild(checkWrapper);
-
-            // ── Story header (title + tags) ──
-            const storyHeader = document.createElement('div');
-            storyHeader.className = 'story-header';
-
-            const a = document.createElement('a');
-            if (/^https?:\/\//.test(story.url)) a.href = story.url;
-            a.target = '_blank';
-            a.rel    = 'noopener noreferrer';
-            a.textContent = story.title;
-            storyHeader.appendChild(a);
-
-            // NEW badge
-            if (story.is_new) {
-                const badge = document.createElement('span');
-                badge.className   = 'new-badge';
-                badge.textContent = 'NEW';
-                storyHeader.appendChild(badge);
-            }
-
-            if (story.categories && story.categories.length > 0) {
-                const categoriesSpan = document.createElement('span');
-                categoriesSpan.className   = 'story-categories';
-                categoriesSpan.textContent = ` (${story.categories.join(', ').toLowerCase()})`;
-                storyHeader.appendChild(categoriesSpan);
-            }
-            li.appendChild(storyHeader);
-
-            // ── Synopsis toggle ──
-            if (story.synopsis && story.synopsis.trim().length > 0) {
-                const synopsisDiv = document.createElement('div');
-                synopsisDiv.className    = 'story-synopsis';
-                synopsisDiv.textContent  = story.synopsis;
-                synopsisDiv.style.display = 'none';
-                li.appendChild(synopsisDiv);
-
-                const toggleButton = document.createElement('button');
-                toggleButton.className   = 'toggle-synopsis';
-                toggleButton.textContent = 'Show Synopsis';
-                toggleButton.onclick = () => {
-                    const isHidden = synopsisDiv.style.display === 'none';
-                    synopsisDiv.style.display = isHidden ? 'block' : 'none';
-                    toggleButton.textContent  = isHidden ? 'Hide Synopsis' : 'Show Synopsis';
-                };
-                li.appendChild(toggleButton);
-            }
-
-            ul.appendChild(li);
-        });
+        stories.forEach(story => ul.appendChild(renderStory(story)));
         resultsContainer.appendChild(ul);
 
         // ── Pagination controls ──
@@ -325,6 +254,122 @@ async function performSearch(page) {
     } catch (error) {
         console.error('Error fetching stories:', error);
         resultsContainer.innerHTML = '<p class="status-message">Error loading stories. Please try again later.</p>';
+    }
+}
+
+// ─── STORY RENDERER ───────────────────────────────────────────────────────────
+function renderStory(story) {
+    const li = document.createElement('li');
+    if (story.is_read) li.classList.add('story-read');
+
+    // ── Read checkbox (top-right corner) ──
+    const checkWrapper = document.createElement('div');
+    checkWrapper.className = 'read-checkbox-wrapper';
+
+    const checkbox = document.createElement('input');
+    checkbox.type      = 'checkbox';
+    checkbox.checked   = story.is_read;
+    checkbox.className = 'read-checkbox';
+    checkbox.setAttribute('aria-label', 'Mark as read');
+
+    if (!currentUser) {
+        checkbox.disabled  = true;
+        checkWrapper.title = 'Log in to save your reading progress';
+    } else {
+        checkbox.addEventListener('change', () => toggleRead(checkbox, li, story.id));
+    }
+    checkWrapper.appendChild(checkbox);
+    li.appendChild(checkWrapper);
+
+    // ── Story header (title + tags) ──
+    const storyHeader = document.createElement('div');
+    storyHeader.className = 'story-header';
+
+    const a = document.createElement('a');
+    if (/^https?:\/\//.test(story.url)) a.href = story.url;
+    a.target      = '_blank';
+    a.rel         = 'noopener noreferrer';
+    a.textContent = story.title;
+    storyHeader.appendChild(a);
+
+    if (story.is_new) {
+        const badge = document.createElement('span');
+        badge.className   = 'new-badge';
+        badge.textContent = 'NEW';
+        storyHeader.appendChild(badge);
+    }
+
+    if (story.categories && story.categories.length > 0) {
+        const categoriesSpan = document.createElement('span');
+        categoriesSpan.className   = 'story-categories';
+        categoriesSpan.textContent = ` (${story.categories.join(', ').toLowerCase()})`;
+        storyHeader.appendChild(categoriesSpan);
+    }
+    li.appendChild(storyHeader);
+
+    // ── Synopsis toggle ──
+    if (story.synopsis && story.synopsis.trim().length > 0) {
+        const synopsisDiv = document.createElement('div');
+        synopsisDiv.className     = 'story-synopsis';
+        synopsisDiv.textContent   = story.synopsis;
+        synopsisDiv.style.display = 'none';
+        li.appendChild(synopsisDiv);
+
+        const toggleButton = document.createElement('button');
+        toggleButton.className   = 'toggle-synopsis';
+        toggleButton.textContent = 'Show Synopsis';
+        toggleButton.onclick = () => {
+            const isHidden = synopsisDiv.style.display === 'none';
+            synopsisDiv.style.display = isHidden ? 'block' : 'none';
+            toggleButton.textContent  = isHidden ? 'Hide Synopsis' : 'Show Synopsis';
+        };
+        li.appendChild(toggleButton);
+    }
+
+    return li;
+}
+
+// ─── RANDOM STORY ─────────────────────────────────────────────────────────────
+async function handleRandomClick() {
+    saveFilterPreferences();
+
+    const included = Array.from(document.querySelectorAll('input[name="include_tag"]:checked')).map(cb => cb.value);
+    const excluded = Array.from(document.querySelectorAll('input[name="exclude_tag"]:checked')).map(cb => cb.value);
+
+    const params = new URLSearchParams();
+    if (included.length) params.set('categories',         included.join(','));
+    if (excluded.length) params.set('excludedCategories', excluded.join(','));
+
+    const resultsContainer = document.getElementById('results-container');
+    resultsContainer.innerHTML = '<p class="status-message">Finding a random story…</p>';
+
+    try {
+        const res = await fetch(`/api/random?${params.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const { story } = await res.json();
+
+        resultsContainer.innerHTML = '';
+
+        const headerEl = document.createElement('p');
+        headerEl.className = 'result-count';
+
+        if (!story) {
+            headerEl.textContent = 'No stories match your current filters.';
+            resultsContainer.appendChild(headerEl);
+            return;
+        }
+
+        const hasFilters = included.length > 0 || excluded.length > 0;
+        headerEl.textContent = hasFilters ? '🎲 Random story (filtered)' : '🎲 Random story';
+        resultsContainer.appendChild(headerEl);
+
+        const ul = document.createElement('ul');
+        ul.appendChild(renderStory(story));
+        resultsContainer.appendChild(ul);
+
+    } catch (err) {
+        console.error('Random story error:', err);
+        resultsContainer.innerHTML = '<p class="status-message">Failed to fetch a random story. Please try again.</p>';
     }
 }
 
