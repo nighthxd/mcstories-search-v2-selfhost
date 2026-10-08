@@ -133,8 +133,8 @@ async function upsertMetadata(stories, db) {
         // New rows get synopsis = '' so we never violate a NOT NULL constraint.
         // Existing rows: ON CONFLICT handler does NOT touch synopsis.
         const stmt = await db.prepare(`
-            INSERT INTO stories (url, title, synopsis, categories, last_seen_at, last_scraped_at)
-            VALUES (?, ?, '', ?, datetime('now'), datetime('now'))
+            INSERT INTO stories (url, title, synopsis, categories, last_seen_at, last_scraped_at, marked_new_at)
+            VALUES (?, ?, '', ?, datetime('now'), datetime('now'), datetime('now'))
             ON CONFLICT(url) DO UPDATE SET
                 title        = excluded.title,
                 categories   = excluded.categories,
